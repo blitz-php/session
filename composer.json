@@ -20,7 +20,7 @@
     },
     "autoload": {
         "psr-4": {
-            "BlitzPHP\\session\\": ""
+            "BlitzPHP\\Session\\": ""
         }
     },
     "config": {

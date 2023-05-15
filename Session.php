@@ -660,7 +660,7 @@ class Session implements SessionInterface
     protected function setCookie()
     {
         $expiration   = $this->config['expiration'] === 0 ? 0 : Date::now()->getTimestamp() + $this->config['expiration'];
-        $this->cookie = $this->cookie->withValue(session_id())->withExpiry($expiration);
+		$this->cookie = $this->cookie->withValue(session_id())->withExpiry(Date::createFromTimestamp($expiration));
     }
 
     /**

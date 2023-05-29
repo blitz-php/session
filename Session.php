@@ -629,6 +629,47 @@ class Session implements SessionInterface
     }
 
     /**
+     * Tentatives d'obtenir de vieilles données d'entrée qui a été flashé à la session avec redirect_with_input().
+     * Il vérifie d'abord les données dans les anciennes données POST, puis les anciennes données GET et enfin vérifier les tableaux de points
+     *
+     * @return array|string|null
+     */
+    public function getOldInput(string $key)
+    {
+        // Si la session n'a pas été démarrée, ou si aucune donnée n'a été enregistrée précédemment, nous avons terminé.
+        if (empty($_SESSION['_blitz_old_input'])) {
+            return null;
+        }
+
+        // Vérifiez d'abord la valeur dans le tableau POST.
+        if (isset($_SESSION['_blitz_old_input']['post'][$key])) {
+            return $_SESSION['_blitz_old_input']['post'][$key];
+        }
+
+        // Prochaine vérification dans le tableau GET.
+        if (isset($_SESSION['_blitz_old_input']['get'][$key])) {
+            return $_SESSION['_blitz_old_input']['get'][$key];
+        }
+
+        // Vérifiez une valeur de tableau dans POST.
+        if (isset($_SESSION['_blitz_old_input']['post'])) {
+            if (null !== $value = Arr::getRecursive($_SESSION['_blitz_old_input']['post'], $key)) {
+                return $value;
+            }
+        }
+
+        // Vérifiez une valeur de tableau dans GET.
+        if (isset($_SESSION['_blitz_old_input']['get'])) {
+            if (null !== $value = Arr::getRecursive($_SESSION['_blitz_old_input']['get'], $key)) {
+                return $value;
+            }
+        }
+
+        // clé session demandée introuvable
+        return null;
+    }
+
+    /**
      * Définit le pilote comme gestionnaire de session en PHP.
      * Extrait pour faciliter les tests.
      */

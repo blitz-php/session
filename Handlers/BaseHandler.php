@@ -65,7 +65,7 @@ abstract class BaseHandler implements SessionHandlerInterface
         'cookie_path'   => '/',
         'cookie_domain' => '',
         'cookie_name'   => '',
-        'secure'        => false,
+        'cookie_secure' => false,
         'matchIP'       => false,
         'expiration'    => 7200,
     ];

@@ -405,7 +405,7 @@ class Session implements SessionInterface
     {
         if (isset($key)) {
             return (isset($_SESSION['__blitz_vars'], $_SESSION['__blitz_vars'][$key], $_SESSION[$key])
-                && ! is_int($_SESSION['__blitz_vars'][$key])) ? $_SESSION[$key] : null;
+                && ! is_int($_SESSION['__blitz_vars'][$key])) ? ((array) $_SESSION[$key]) : null;
         }
 
         $flashdata = [];

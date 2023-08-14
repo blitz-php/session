@@ -277,22 +277,38 @@ class Session implements SessionInterface
     /**
      * {@inheritDoc}
      */
-    public function set(array|string $data, mixed $value = null): void
+    public function set(array|string $key, mixed $value = null): void
     {
-        if (is_array($data)) {
-            foreach ($data as $key => &$value) {
-                if (is_int($key)) {
-                    $_SESSION[$value] = null;
-                } else {
-                    $_SESSION[$key] = $value;
-                }
-            }
-
-            return;
+		if (! is_array($key)) {
+            $key = [$key => $value];
         }
 
-        $_SESSION[$data] = $value;
-    }
+        foreach ($key as $k => $v) {
+			if (is_int($k)) {
+				$k = $v;
+				$v = null;
+			}
+
+			Arr::set($_SESSION, $k, $v);
+        }
+	}
+
+	public function put(array|string $data, mixed $value = null): void
+	{
+		$this->set($data, $value);
+	}
+
+	/**
+	 * Get all of the session data.
+	 */
+	public function all(): array
+	{
+		if (empty($_SESSION)) {
+			return [];
+		}
+
+		return Arr::except($_SESSION , array_merge(['__blitz_vars'], $this->getFlashKeys(), $this->getTempKeys()));
+	}
 
     /**
      * {@inheritDoc}
@@ -311,15 +327,23 @@ class Session implements SessionInterface
             return null;
         }
 
-        return Arr::except($_SESSION, array_merge(['__blitz_vars'], $this->getFlashKeys(), $this->getTempKeys()));
+        return $this->all();
     }
 
     /**
      * {@inheritDoc}
      */
-    public function has(string $key): bool
+    public function has($key): bool
     {
-        return isset($_SESSION[$key]);
+		$keys = is_array($key) ? $key : func_get_args();
+
+		foreach ($keys as $key) {
+			if (empty($_SESSION[$key])) {
+				return false;
+			}
+		}
+
+		return true;
     }
 
     /**

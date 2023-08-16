@@ -851,6 +851,6 @@ class Session implements SessionInterface
      */
     private function onTest(): bool
     {
-        return function_exists('on_test') && on_test();
+        return (function_exists('on_test') && on_test()) || (function_exists('is_cli') && is_cli());
     }
 }

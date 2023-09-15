@@ -187,6 +187,20 @@ class Store extends Session
         $this->setFlashdata($key, $value);
     }
 
+    public function flashErrors(array|string $errors, string $key = 'default'): void
+    {
+        if (is_string($errors)) {
+            $errors = [$key => $errors];
+        }
+
+        $_errors = $this->getFlashdata('errors') ?? [];
+        
+        $this->flash(
+            'errors',
+            array_merge($_errors, $errors)
+        );
+    }
+
 	/**
      * Get the CSRF token value.
      *

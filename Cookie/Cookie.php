@@ -206,14 +206,14 @@ class Cookie implements CookieInterface
      *
      * @param mixed $value
      */
-    public static function create(string $name, $value, array $options = []): self
+    public static function create(string $name, $value, array $options = []): static
     {
         $options += static::$defaults;
         $options['expires'] = static::dateTimeInstance($options['expires']);
 
         return new static(
             $name,
-            $value,
+            $value ?: '',
             $options['expires'],
             $options['path'],
             $options['domain'],
@@ -266,7 +266,7 @@ class Cookie implements CookieInterface
      *
      * @see \BlitzPHP\Session\Cookie\Cookie::setDefaults()
      */
-    public static function createFromHeaderString(string $cookie, array $defaults = []): self
+    public static function createFromHeaderString(string $cookie, array $defaults = []): static
     {
         if (strpos($cookie, '";"') !== false) {
             $cookie = str_replace('";"', '{__cookie_replace__}', $cookie);
@@ -310,11 +310,7 @@ class Cookie implements CookieInterface
         $value = (string) $data['value'];
         unset($data['name'], $data['value']);
 
-        return self::create(
-            $name,
-            $value,
-            $data
-        );
+        return static::create($name, $value, $data);
     }
 
     /**
@@ -356,7 +352,7 @@ class Cookie implements CookieInterface
     /**
      * {@inheritDoc}
      */
-    public function withName(string $name): self
+    public function withName(string $name): static
     {
         $this->validateName($name);
         $new       = clone $this;
@@ -425,7 +421,7 @@ class Cookie implements CookieInterface
     /**
      * {@inheritDoc}
      */
-    public function withValue($value): self
+    public function withValue($value): static
     {
         $new = clone $this;
         $new->_setValue($value);
@@ -447,7 +443,7 @@ class Cookie implements CookieInterface
     /**
      * {@inheritDoc}
      */
-    public function withPath(string $path): self
+    public function withPath(string $path): static
     {
         $new       = clone $this;
         $new->path = $path;
@@ -493,7 +489,7 @@ class Cookie implements CookieInterface
     /**
      * {@inheritDoc}
      */
-    public function withSecure(bool $secure): self
+    public function withSecure(bool $secure): static
     {
         $new         = clone $this;
         $new->secure = $secure;
@@ -504,7 +500,7 @@ class Cookie implements CookieInterface
     /**
      * {@inheritDoc}
      */
-    public function withHttpOnly(bool $httpOnly): self
+    public function withHttpOnly(bool $httpOnly): static
     {
         $new           = clone $this;
         $new->httpOnly = $httpOnly;
@@ -523,7 +519,7 @@ class Cookie implements CookieInterface
     /**
      * {@inheritDoc}
      */
-    public function withExpiry($dateTime): self
+    public function withExpiry($dateTime): static
     {
         $new            = clone $this;
         $new->expiresAt = $dateTime->setTimezone(new DateTimeZone('GMT'));
@@ -657,7 +653,7 @@ class Cookie implements CookieInterface
      *
      * @param mixed $value
      */
-    public function withAddedValue(string $path, $value): self
+    public function withAddedValue(string $path, $value): static
     {
         $new = clone $this;
         if ($new->isExpanded === false) {
@@ -674,7 +670,7 @@ class Cookie implements CookieInterface
     /**
      * Créer un nouveau cookie sans chemin spécifique
      */
-    public function withoutAddedValue(string $path): self
+    public function withoutAddedValue(string $path): static
     {
         $new = clone $this;
         if ($new->isExpanded === false) {

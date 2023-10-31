@@ -13,9 +13,11 @@ namespace BlitzPHP\Session\Cookie;
 
 use BlitzPHP\Contracts\Session\CookieManagerInterface;
 use BlitzPHP\Traits\Macroable;
+use BlitzPHP\Traits\Support\InteractsWithTime;
 
 class CookieManager implements CookieManagerInterface
 {
+	use InteractsWithTime;
     use Macroable;
 
     /**

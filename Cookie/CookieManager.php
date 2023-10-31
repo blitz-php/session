@@ -17,7 +17,7 @@ use BlitzPHP\Traits\Support\InteractsWithTime;
 
 class CookieManager implements CookieManagerInterface
 {
-	use InteractsWithTime;
+    use InteractsWithTime;
     use Macroable;
 
     /**
@@ -35,7 +35,7 @@ class CookieManager implements CookieManagerInterface
      */
     protected bool $secure = false;
 
-	/**
+    /**
      * Le paramètre de sécurité par défaut (par défaut : true).
      */
     protected bool $httponly = true;
@@ -50,7 +50,7 @@ class CookieManager implements CookieManagerInterface
      */
     public function make(string $name, array|string $value, int $minutes = 0, array $options = []): Cookie
     {
-        $time = ($minutes == 0) ? 0 : $this->availableAt($minutes * 60);
+        $time = ($minutes === 0) ? 0 : $this->availableAt($minutes * 60);
 
         return Cookie::create($name, $value, [
             'expires'  => $time,
@@ -58,7 +58,7 @@ class CookieManager implements CookieManagerInterface
             'domain'   => $options['domain'] ?: $this->domain,
             'secure'   => $options['secure'] ?: $this->secure,
             'httponly' => $options['httponly'] ?: $this->httponly,
-            'samesite' => $options['samesite'] ?: $this->samesite
+            'samesite' => $options['samesite'] ?: $this->samesite,
         ]);
     }
 
@@ -75,12 +75,12 @@ class CookieManager implements CookieManagerInterface
      */
     public function forget(string $name, array $options = []): Cookie
     {
-        return $this->make($name, '', -2628000, ['secure'   => null, 'samesite' => null] + $options);
+        return $this->make($name, '', -2628000, ['secure' => null, 'samesite' => null] + $options);
     }
 
-	/**
-	 * {@inheritDoc}
-	 */
+    /**
+     * {@inheritDoc}
+     */
     public function get(string $name, array $options = []): ?Cookie
     {
         if (empty($value = $_COOKIE[$name])) {
@@ -90,13 +90,13 @@ class CookieManager implements CookieManagerInterface
         return $this->make($name, $value, 0, $options);
     }
 
-	/**
-	 * {@inheritDoc}
-	 */
-	public function has(string $name): bool
-	{
-		return ! empty($_COOKIE[$name]);
-	}
+    /**
+     * {@inheritDoc}
+     */
+    public function has(string $name): bool
+    {
+        return ! empty($_COOKIE[$name]);
+    }
 
     /**
      * Définissez le chemin et le domaine par défaut du gestionnaire.

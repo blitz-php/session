@@ -18,97 +18,92 @@ use Closure;
 
 class Store extends Session
 {
-	/**
+    /**
      * {@inheritDoc}
      */
     public function start()
     {
-		$status = parent::start();
+        $status = parent::start();
 
-		if (! $this->has('_token')) {
+        if (! $this->has('_token')) {
             $this->regenerateToken();
         }
 
-		return $status;
+        return $status;
     }
 
-	/**
+    /**
      * {@inheritDoc}
      */
     public function regenerate(bool $destroy = false): void
     {
-		$this->regenerateToken();
-		parent::regenerate($destroy);
+        $this->regenerateToken();
+        parent::regenerate($destroy);
     }
 
-
     /**
-     * Get a subset of the session data.
+     * Obtenez un sous-ensemble des données de session.
      */
     public function only(array $keys): array
     {
         return Arr::only($this->all(), $keys);
     }
 
-	/**
-     * Checks if a key exists.
-     *
-     * @param  string|array  $key
+    /**
+     * Vérifie si une clé existe.
      */
-    public function exists($key): bool
+    public function exists(array|string $key): bool
     {
         $keys = is_array($key) ? $key : func_get_args();
 
-		foreach ($keys as $key) {
-			if (!isset($_SESSION[$key])) {
-				return false;
-			}
-		}
+        foreach ($keys as $key) {
+            if (! isset($_SESSION[$key])) {
+                return false;
+            }
+        }
 
-		return true;
+        return true;
     }
 
     /**
-     * Determine if the given key is missing from the session data.
-     *
-     * @param  string|array  $key
+     * Déterminez si la clé donnée est manquante dans les données de session.
      */
-    public function missing($key): bool
+    public function missing(array|string $key): bool
     {
         return ! $this->exists($key);
     }
 
-	/**
+    /**
      * {@inheritDoc}
      */
     public function get(?string $key = null, mixed $default = null): mixed
-	{
-		if (null !== $value = parent::get($key)) {
-			return $value;
-		}
-
-		return $default;
-	}
-
-	/**
-     * Get the value of a given key and then forget it.
-     */
-    public function pull(string $key, mixed $default = null): mixed
     {
-		$value = $this->get($key, $default);
-		$this->remove($key);
+        if (null !== $value = parent::get($key)) {
+            return $value;
+        }
 
-		return $value;
+        return $default;
     }
 
     /**
-     * Determine if the session contains old input.
+     * Obtenez la valeur d'une clé donnée, puis effacez-la.
+     */
+    public function pull(string $key, mixed $default = null): mixed
+    {
+        $value = $this->get($key, $default);
+        $this->remove($key);
+
+        return $value;
+    }
+
+    /**
+     * Déterminez si la session contient d’anciennes entrées.
      */
     public function hasOldInput(?string $key = null): bool
     {
         $old = $this->getOldInput($key);
 
-        return is_null($key) ? count($old) > 0 : ! is_null($old);
+        return null === $key ? count($old) > 0 : null !== $old;
     }
 
     /**
@@ -116,27 +111,27 @@ class Store extends Session
      */
     public function getOldInput($key = null, $default = null)
     {
-		if (!null !== $value = parent::getOldInput($key)) {
-			return $value;
-		}
+        if (! null !== $value = parent::getOldInput($key)) {
+            return $value;
+        }
 
-		return $default;
+        return $default;
     }
 
-	/**
-     * Replace the given session attributes entirely.
+    /**
+     * Remplacez entièrement les attributs de session donnés.
      */
     public function replace(array $attributes): void
     {
         $this->put($attributes);
     }
 
-	/**
-     * Get an item from the session, or store the default value.
+    /**
+     * Récupérez un élément de la session ou stockez la valeur par défaut.
      */
     public function remember(string $key, Closure $callback): mixed
     {
-        if (! is_null($value = $this->get($key))) {
+        if (null !== ($value = $this->get($key))) {
             return $value;
         }
 
@@ -145,8 +140,8 @@ class Store extends Session
         });
     }
 
-	/**
-	 * {@inheritDoc}
+    /**
+     * {@inheritDoc}
      */
     public function push(string $key, mixed $value): void
     {
@@ -157,8 +152,8 @@ class Store extends Session
         $this->put($key, $array);
     }
 
-	/**
-     * Increment the value of an item in the session.
+    /**
+     * Incrémente la valeur d'un élément dans la session.
      */
     public function increment(string $key, int $amount = 1): mixed
     {
@@ -168,8 +163,8 @@ class Store extends Session
     }
 
     /**
-     * Decrement the value of an item in the session.
-	 *
+     * Décrémenter la valeur d'un élément dans la session.
+     *
      * @return int
      */
     public function decrement(string $key, int $amount = 1)
@@ -178,11 +173,9 @@ class Store extends Session
     }
 
     /**
-     * Flash a key / value pair to the session.
-     *
-     * @return void
+     * Flashez une paire clé/valeur dans la session.
      */
-    public function flash(string|array $key, mixed $value = true): void
+    public function flash(array|string $key, mixed $value = true): void
     {
         $this->setFlashdata($key, $value);
     }
@@ -196,16 +189,14 @@ class Store extends Session
         $_errors = $this->getFlashdata('errors') ?? [];
 
         $flashed = array_merge($_errors, $errors);
-        
+
         $this->flash('errors', $flashed);
 
         return $flashed;
     }
 
-	/**
-     * Get the CSRF token value.
-     *
-     * @return string
+    /**
+     * Obtenez la valeur du jeton CSRF.
      */
     public function token(): ?string
     {
@@ -213,17 +204,15 @@ class Store extends Session
     }
 
     /**
-     * Regenerate the CSRF token value.
-     *
-     * @return void
+     * Régénérez la valeur du jeton CSRF.
      */
-    public function regenerateToken()
+    public function regenerateToken(): void
     {
         $this->put('_token', Text::random(40));
     }
 
     /**
-     * Get the previous URL from the session.
+     * Obtenez l'URL précédente de la session.
      */
     public function previousUrl(): ?string
     {
@@ -231,7 +220,7 @@ class Store extends Session
     }
 
     /**
-     * Set the "previous" URL in the session.
+     * Définissez l'URL "précédente" dans la session.
      */
     public function setPreviousUrl(string $url): void
     {
@@ -239,7 +228,7 @@ class Store extends Session
     }
 
     /**
-     * Specify that the user has confirmed their password.
+     * Précisez que l'utilisateur a confirmé son mot de passe.
      */
     public function passwordConfirmed(): void
     {

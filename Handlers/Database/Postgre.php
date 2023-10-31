@@ -30,7 +30,7 @@ class Postgre extends Database
     /**
      * {@inheritDoc}
      */
-    protected function decodeData(string $data): string|false
+    protected function decodeData(string $data): false|string
     {
         return base64_decode(rtrim($data), true);
     }

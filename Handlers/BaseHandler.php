@@ -141,7 +141,7 @@ abstract class BaseHandler implements SessionHandlerInterface
     /**
      * {@inheritDoc}
      */
-    public function gc(int $max_lifetime): int|false
+    public function gc(int $max_lifetime): false|int
     {
         return 1;
     }

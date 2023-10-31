@@ -71,7 +71,7 @@ class File extends BaseHandler
      */
     public function open(string $path, string $name): bool
     {
-        if (! is_dir($path) && ! mkdir($path, 0700, true)) {
+        if (! is_dir($path) && ! mkdir($path, 0o700, true)) {
             throw SessionException::invalidSavePath($this->_config['savePath']);
         }
 
@@ -115,7 +115,7 @@ class File extends BaseHandler
             }
 
             if ($this->fileNew) {
-                chmod($this->filePath . $id, 0600);
+                chmod($this->filePath . $id, 0o600);
                 $this->fingerprint = md5('');
 
                 return '';

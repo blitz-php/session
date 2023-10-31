@@ -168,7 +168,7 @@ class Session implements SessionInterface
     /**
      * Defini l'instance de la database a utiliser (pour les gestionnaire de session de type base de donnees)
      */
-    public function setDatabase(?ConnectionInterface $db): self
+    public function setDatabase(?ConnectionInterface $db): static
     {
         $this->db = $db;
 
@@ -176,7 +176,7 @@ class Session implements SessionInterface
     }
 
     /**
-     * Initialize the session container and starts up the session.
+     * Initialisez le conteneur de session et démarre la session.
      *
      * @return self|void
      */
@@ -279,36 +279,36 @@ class Session implements SessionInterface
      */
     public function set(array|string $key, mixed $value = null): void
     {
-		if (! is_array($key)) {
+        if (! is_array($key)) {
             $key = [$key => $value];
         }
 
         foreach ($key as $k => $v) {
-			if (is_int($k)) {
-				$k = $v;
-				$v = null;
-			}
+            if (is_int($k)) {
+                $k = $v;
+                $v = null;
+            }
 
-			Arr::set($_SESSION, $k, $v);
+            Arr::set($_SESSION, $k, $v);
         }
-	}
+    }
 
-	public function put(array|string $data, mixed $value = null): void
-	{
-		$this->set($data, $value);
-	}
+    public function put(array|string $data, mixed $value = null): void
+    {
+        $this->set($data, $value);
+    }
 
-	/**
-	 * Get all of the session data.
-	 */
-	public function all(): array
-	{
-		if (empty($_SESSION)) {
-			return [];
-		}
+    /**
+     * Obtenez toutes les données de la session.
+     */
+    public function all(): array
+    {
+        if (empty($_SESSION)) {
+            return [];
+        }
 
-		return Arr::except($_SESSION , array_merge(['__blitz_vars'], $this->getFlashKeys(), $this->getTempKeys()));
-	}
+        return Arr::except($_SESSION, array_merge(['__blitz_vars'], $this->getFlashKeys(), $this->getTempKeys()));
+    }
 
     /**
      * {@inheritDoc}
@@ -335,15 +335,15 @@ class Session implements SessionInterface
      */
     public function has($key): bool
     {
-		$keys = is_array($key) ? $key : func_get_args();
+        $keys = is_array($key) ? $key : func_get_args();
 
-		foreach ($keys as $key) {
-			if (empty($_SESSION[$key])) {
-				return false;
-			}
-		}
+        foreach ($keys as $key) {
+            if (empty($_SESSION[$key])) {
+                return false;
+            }
+        }
 
-		return true;
+        return true;
     }
 
     /**
@@ -416,7 +416,7 @@ class Session implements SessionInterface
     /**
      * {@inheritDoc}
      */
-    public function setFlashdata(array|string $data, array|bool|float|int|object|string|null $value = null): void
+    public function setFlashdata(array|string $data, null|array|bool|float|int|object|string $value = null): void
     {
         $this->set($data, $value);
         $this->markAsFlashdata(is_array($data) ? array_keys($data) : $data);
@@ -528,7 +528,7 @@ class Session implements SessionInterface
     /**
      * {@inheritDoc}
      */
-    public function setTempdata(array|string $data, array|bool|float|int|object|string|null $value = null, int $ttl = 300): void
+    public function setTempdata(array|string $data, null|array|bool|float|int|object|string $value = null, int $ttl = 300): void
     {
         $this->set($data, $value);
         $this->markAsTempdata($data, $ttl);
@@ -725,7 +725,7 @@ class Session implements SessionInterface
     protected function setCookie()
     {
         $expiration   = $this->config['expiration'] === 0 ? 0 : Date::now()->getTimestamp() + $this->config['expiration'];
-		$this->cookie = $this->cookie->withValue(session_id())->withExpiry(Date::createFromTimestamp($expiration));
+        $this->cookie = $this->cookie->withValue(session_id())->withExpiry(Date::createFromTimestamp($expiration));
     }
 
     /**

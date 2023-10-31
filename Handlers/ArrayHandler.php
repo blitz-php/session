@@ -30,7 +30,7 @@ class ArrayHandler extends BaseHandler
     /**
      * {@inheritDoc}
      */
-    public function read(string $id): string|false
+    public function read(string $id): false|string
     {
         return '';
     }

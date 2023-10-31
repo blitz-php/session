@@ -143,7 +143,7 @@ class Database extends BaseHandler
     /**
      * Décode les données de colonne
      */
-    protected function decodeData(string $data): string|false
+    protected function decodeData(string $data): false|string
     {
         return $data;
     }

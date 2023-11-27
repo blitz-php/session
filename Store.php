@@ -180,6 +180,14 @@ class Store extends Session
         $this->setFlashdata($key, $value);
     }
 
+    /**
+     * Flashez un tableau d’entrée dans la session.
+     */
+    public function flashInput(array $value): void
+    {
+        $this->flash('_old_input', $value);
+    }
+
     public function flashErrors(array|string $errors, string $key = 'default'): array
     {
         if (is_string($errors)) {

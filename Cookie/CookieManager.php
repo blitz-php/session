@@ -54,11 +54,11 @@ class CookieManager implements CookieManagerInterface
 
         return Cookie::create($name, $value, [
             'expires'  => $time,
-            'path'     => $options['path'] ?: $this->path,
-            'domain'   => $options['domain'] ?: $this->domain,
-            'secure'   => $options['secure'] ?: $this->secure,
-            'httponly' => $options['httponly'] ?: $this->httponly,
-            'samesite' => $options['samesite'] ?: $this->samesite,
+            'path'     => $options['path'] ?? $this->path,
+            'domain'   => $options['domain'] ?? $this->domain,
+            'secure'   => $options['secure'] ?? $this->secure,
+            'httponly' => $options['httponly'] ?? $this->httponly,
+            'samesite' => $options['samesite'] ?? $this->samesite,
         ]);
     }
 

@@ -699,6 +699,10 @@ class Session implements SessionInterface
      */
     protected function setSaveHandler()
     {
+		if ($this->onTest()) {
+			return;
+		}
+
         session_set_save_handler($this->factory(), true);
     }
 
@@ -735,6 +739,10 @@ class Session implements SessionInterface
      */
     protected function configure()
     {
+		if ($this->onTest()) {
+			return;
+		}
+
         if (empty($this->config['cookie_name'])) {
             $this->config['cookie_name'] = ini_get('session.name');
         } else {

@@ -61,7 +61,7 @@ class CookieCollection implements IteratorAggregate, Countable
      * @param array<string>        $header   Le tableau des valeurs d'en-tête set-cookie.
      * @param array<string, mixed> $defaults Les attributs par défaut.
      */
-    public static function createFromHeader(array $header, array $defaults = []): self
+    public static function createFromHeader(array $header, array $defaults = []): static
     {
         $cookies = [];
 
@@ -79,7 +79,7 @@ class CookieCollection implements IteratorAggregate, Countable
     /**
      * Créer une nouvelle collection à partir des cookies dans un ServerRequest
      */
-    public static function createFromServerRequest(ServerRequestInterface $request): self
+    public static function createFromServerRequest(ServerRequestInterface $request): static
     {
         $data    = $request->getCookieParams();
         $cookies = [];
@@ -106,7 +106,7 @@ class CookieCollection implements IteratorAggregate, Countable
      * cookies si une collection de cookies est utilisée pour les cookies sur plusieurs
      * domaines. Cela peut avoir un impact sur le comportement de get(), has() et remove().
      */
-    public function add(CookieInterface $cookie): self
+    public function add(CookieInterface $cookie): static
     {
         $new                            = clone $this;
         $new->cookies[$cookie->getId()] = $cookie;
@@ -158,7 +158,7 @@ class CookieCollection implements IteratorAggregate, Countable
      *
      * Si le cookie n'est pas dans la collection, cette méthode ne fera rien.
      */
-    public function remove(string $name): self
+    public function remove(string $name): static
     {
         $new = clone $this;
         $key = mb_strtolower($name);
@@ -284,7 +284,7 @@ class CookieCollection implements IteratorAggregate, Countable
     /**
      * Créez une nouvelle collection qui inclut les cookies de la réponse.
      */
-    public function addFromResponse(ResponseInterface $response, RequestInterface $request): self
+    public function addFromResponse(ResponseInterface $response, RequestInterface $request): static
     {
         $uri  = $request->getUri();
         $host = $uri->getHost();

@@ -21,7 +21,7 @@ class CookieValuePrefix
      */
     public static function create(string $cookieName, string $key): string
     {
-        return hash_hmac('sha1', $cookieName.'v2', $key).'|';
+        return hash_hmac('sha1', $cookieName . 'v2', $key) . '|';
     }
 
     /**
@@ -34,7 +34,7 @@ class CookieValuePrefix
 
     /**
      * Validez qu'une valeur de cookie contient un préfixe valide.
-	 * Si tel est le cas, renvoyez la valeur du cookie avec le préfixe supprimé. Sinon, renvoie null.
+     * Si tel est le cas, renvoyez la valeur du cookie avec le préfixe supprimé. Sinon, renvoie null.
      */
     public static function validate(string $cookieName, string $cookieValue, string $key): ?string
     {

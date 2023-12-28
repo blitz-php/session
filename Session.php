@@ -275,6 +275,18 @@ class Session implements SessionInterface
     }
 
     /**
+     * Écrit les données de la session et ferme la session en cours.
+     */
+    public function close(): void
+    {
+        if ($this->onTest()) {
+            return;
+        }
+
+        session_write_close();
+    }
+
+    /**
      * {@inheritDoc}
      */
     public function set(array|string $key, mixed $value = null): void

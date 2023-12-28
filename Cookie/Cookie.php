@@ -527,6 +527,18 @@ class Cookie implements CookieInterface
         return $new;
     }
 
+	/**
+	 * Crée un nouveau cookie avec un nouveau délai d'expiration.
+	 */
+	public function withExpires(mixed $expires): static
+	{
+		if (! $expires instanceof DateTimeInterface) {
+			$expires = static::dateTimeInstance($expires);
+		}
+
+		return $this->withExpiry($expires);
+	}
+
     /**
      * {@inheritDoc}
      */

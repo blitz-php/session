@@ -123,7 +123,7 @@ class Session implements SessionInterface
             return $this->adapter;
         }
 
-        $validHandlers = $this->config['valid_handlers'] ?? self::$validHandlers;
+        $validHandlers = ($this->config['valid_handlers'] ?? []) +  static::$validHandlers;
 
         if (empty($validHandlers) || ! is_array($validHandlers)) {
             throw new InvalidArgumentException('La configuration de la session doit avoir un tableau de $valid_handlers.');
@@ -174,6 +174,31 @@ class Session implements SessionInterface
 
         return $this;
     }
+
+	/**
+	 * Ajout d'un gestionnaire de session personnalisé
+	 */
+	public function extend(array|string $name, ?string $handler = null): void
+	{
+		if (is_string($name)) {
+			if (null === $handler) {
+				throw new InvalidArgumentException(sprintf('Gestionnaire de session non specifié pour %s', $name));
+			}
+
+			$name = [$name => $handler];
+		}
+
+		foreach ($name as $key => $handler) {
+			if (! is_a($handler, BaseHandler::class, true)) {
+				throw new InvalidArgumentException(sprintf(
+					'Le gestionnaire de session personnalisé %s doit utiliser %s comme classe de base.',
+					$handler, BaseHandler::class
+				));
+			}
+
+			static::$validHandlers += [$key => $handler];
+		}
+	}
 
     /**
      * Initialisez le conteneur de session et démarre la session.

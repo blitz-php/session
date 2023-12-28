@@ -144,7 +144,7 @@ class Session implements SessionInterface
 
         $adapter = new $validHandlers[$handler]();
         if (! ($adapter instanceof BaseHandler)) {
-            throw new InvalidArgumentException('Le gestionnaire de cache doit utiliser BlitzPHP\Session\Handlers\BaseHandler comme classe de base.');
+            throw new InvalidArgumentException(sprintf('Le gestionnaire de session doit utiliser %s comme classe de base.', BaseHandler::class));
         }
 
         if (! $adapter->init($this->config, $this->ipAddress)) {

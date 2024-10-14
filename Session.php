@@ -253,7 +253,6 @@ class Session implements SessionInterface
         }
 
         $this->initVars();
-        $this->logger->info("Session: Classe initialisée à l'aide de '" . Helpers::classBasename($this->factory()) . "'");
 
         return $this;
     }

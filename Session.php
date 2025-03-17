@@ -102,7 +102,8 @@ class Session implements SessionInterface
      */
     public function __construct(array $config, array $cookie, protected string $ipAddress)
     {
-        $this->config = array_merge($this->config, $config);
+        $this->config                = array_merge($this->config, $config);
+        $this->config['cookie_name'] = str_replace(' ', '-', strtolower($this->config['cookie_name']));
 
         $this->cookie = Cookie::create(
             $this->config['cookie_name'],

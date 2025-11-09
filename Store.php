@@ -203,12 +203,12 @@ class Store extends Session
         return $flashed;
     }
 
-	/**
+    /**
      * Remettre à jour toutes les données de la mémoire flash de la session.
      */
     public function reflash(): void
     {
-		$this->keep($this->getFlashKeys());
+        $this->keep($this->getFlashKeys());
     }
 
     /**
@@ -219,13 +219,13 @@ class Store extends Session
         $this->keepFlashdata($keys);
     }
 
-	/**
-	 * Définit de nouvelles données dans la session et les marque comme données temporaires avec une durée de vie définie.
-	 */
-	public function temp(array|string $key, mixed $value = null, int $expire = 300): void
-	{
-		$this->setTempdata($key, $value, $expire);
-	}
+    /**
+     * Définit de nouvelles données dans la session et les marque comme données temporaires avec une durée de vie définie.
+     */
+    public function temp(array|string $key, mixed $value = null, int $expire = 300): void
+    {
+        $this->setTempdata($key, $value, $expire);
+    }
 
     /**
      * Obtenez la valeur du jeton CSRF.

@@ -38,9 +38,9 @@ class Session implements SessionInterface
         'file'      => Handlers\File::class,
         'memcached' => Handlers\Memcached::class,
         'redis'     => Handlers\Redis::class,
-        'database'  => Handlers\Database::class,
-        'postgre'   => Handlers\Database\Postgre::class,
-        'mysql'     => Handlers\Database\MySQL::class,
+        'database'  => Database::class,
+        'postgre'   => Database\Postgre::class,
+        'mysql'     => Database\MySQL::class,
     ];
 
     /**
@@ -124,7 +124,7 @@ class Session implements SessionInterface
             return $this->adapter;
         }
 
-        $validHandlers = ($this->config['valid_handlers'] ?? []) +  static::$validHandlers;
+        $validHandlers = ($this->config['valid_handlers'] ?? []) + static::$validHandlers;
 
         if (empty($validHandlers) || ! is_array($validHandlers)) {
             throw new InvalidArgumentException('La configuration de la session doit avoir un tableau de $valid_handlers.');
@@ -176,30 +176,31 @@ class Session implements SessionInterface
         return $this;
     }
 
-	/**
-	 * Ajout d'un gestionnaire de session personnalisé
-	 */
-	public function extend(array|string $name, ?string $handler = null): void
-	{
-		if (is_string($name)) {
-			if (null === $handler) {
-				throw new InvalidArgumentException(sprintf('Gestionnaire de session non specifié pour %s', $name));
-			}
+    /**
+     * Ajout d'un gestionnaire de session personnalisé
+     */
+    public function extend(array|string $name, ?string $handler = null): void
+    {
+        if (is_string($name)) {
+            if (null === $handler) {
+                throw new InvalidArgumentException(sprintf('Gestionnaire de session non specifié pour %s', $name));
+            }
 
-			$name = [$name => $handler];
-		}
+            $name = [$name => $handler];
+        }
 
-		foreach ($name as $key => $handler) {
-			if (! is_a($handler, BaseHandler::class, true)) {
-				throw new InvalidArgumentException(sprintf(
-					'Le gestionnaire de session personnalisé %s doit utiliser %s comme classe de base.',
-					$handler, BaseHandler::class
-				));
-			}
+        foreach ($name as $key => $handler) {
+            if (! is_a($handler, BaseHandler::class, true)) {
+                throw new InvalidArgumentException(sprintf(
+                    'Le gestionnaire de session personnalisé %s doit utiliser %s comme classe de base.',
+                    $handler,
+                    BaseHandler::class
+                ));
+            }
 
-			static::$validHandlers += [$key => $handler];
-		}
-	}
+            static::$validHandlers += [$key => $handler];
+        }
+    }
 
     /**
      * Initialisez le conteneur de session et démarre la session.
@@ -254,7 +255,7 @@ class Session implements SessionInterface
         }
 
         $this->initVars();
-		$this->logger->debug("Session: Classe initialisée à l'aide de '" . Helpers::classBasename($this->factory()) . "'");
+        $this->logger->debug("Session: Classe initialisée à l'aide de '" . Helpers::classBasename($this->factory()) . "'");
 
         return $this;
     }
@@ -454,7 +455,7 @@ class Session implements SessionInterface
     /**
      * {@inheritDoc}
      */
-    public function setFlashdata(array|string $data, null|array|bool|float|int|object|string $value = null): void
+    public function setFlashdata(array|string $data, array|bool|float|int|object|string|null $value = null): void
     {
         $this->set($data, $value);
         $this->markAsFlashdata(is_array($data) ? array_keys($data) : $data);
@@ -566,7 +567,7 @@ class Session implements SessionInterface
     /**
      * {@inheritDoc}
      */
-    public function setTempdata(array|string $data, null|array|bool|float|int|object|string $value = null, int $ttl = 300): void
+    public function setTempdata(array|string $data, array|bool|float|int|object|string|null $value = null, int $ttl = 300): void
     {
         $this->set($data, $value);
         $this->markAsTempdata($data, $ttl);
@@ -737,9 +738,9 @@ class Session implements SessionInterface
      */
     protected function setSaveHandler()
     {
-		if ($this->onTest()) {
-			return;
-		}
+        if ($this->onTest()) {
+            return;
+        }
 
         session_set_save_handler($this->factory(), true);
     }
@@ -777,9 +778,9 @@ class Session implements SessionInterface
      */
     protected function configure()
     {
-		if ($this->onTest()) {
-			return;
-		}
+        if ($this->onTest()) {
+            return;
+        }
 
         if (empty($this->config['cookie_name'])) {
             $this->config['cookie_name'] = ini_get('session.name');

@@ -228,7 +228,7 @@ class Cookie implements CookieInterface
      *
      * @param mixed $expires Expiry value.
      *
-     * @return DateTime|DatetimeImmutable|null
+     * @return DateTime|DateTimeImmutable|null
      */
     protected static function dateTimeInstance($expires): ?DateTimeInterface
     {
@@ -527,17 +527,17 @@ class Cookie implements CookieInterface
         return $new;
     }
 
-	/**
-	 * Crée un nouveau cookie avec un nouveau délai d'expiration.
-	 */
-	public function withExpires(mixed $expires): static
-	{
-		if (! $expires instanceof DateTimeInterface) {
-			$expires = static::dateTimeInstance($expires);
-		}
+    /**
+     * Crée un nouveau cookie avec un nouveau délai d'expiration.
+     */
+    public function withExpires(mixed $expires): static
+    {
+        if (! $expires instanceof DateTimeInterface) {
+            $expires = static::dateTimeInstance($expires);
+        }
 
-		return $this->withExpiry($expires);
-	}
+        return $this->withExpiry($expires);
+    }
 
     /**
      * {@inheritDoc}

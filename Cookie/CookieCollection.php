@@ -37,14 +37,14 @@ class CookieCollection implements IteratorAggregate, Countable
     /**
      * Cbjets cookies
      *
-     * @var CookieInterface[]
+     * @var list<CookieInterface>
      */
     protected $cookies = [];
 
     /**
      * Constructeur
      *
-     * @param CookieInterface[] $cookies Tableau de cookies
+     * @param list<CookieInterface> $cookies Tableau de cookies
      */
     public function __construct(array $cookies = [])
     {
@@ -58,7 +58,7 @@ class CookieCollection implements IteratorAggregate, Countable
     /**
      * Créer une collection de cookies à partir d'un tableau d'en-têtes Set-Cookie
      *
-     * @param array<string>        $header   Le tableau des valeurs d'en-tête set-cookie.
+     * @param list<string>         $header   Le tableau des valeurs d'en-tête set-cookie.
      * @param array<string, mixed> $defaults Les attributs par défaut.
      */
     public static function createFromHeader(array $header, array $defaults = []): static
@@ -175,7 +175,7 @@ class CookieCollection implements IteratorAggregate, Countable
     /**
      * Vérifie si seuls des objets de cookie valides sont dans le tableau
      *
-     * @param CookieInterface[] $cookies
+     * @param list<CookieInterface> $cookies
      *
      * @throws InvalidArgumentException
      */

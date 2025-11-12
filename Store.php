@@ -38,8 +38,11 @@ class Store extends Session
      */
     public function regenerate(bool $destroy = false): void
     {
-        parent::regenerate($destroy);
-        $this->regenerateToken();
+		if ($this->started) {
+			parent::regenerate($destroy);
+		}
+
+		$this->regenerateToken();
     }
 
     /**
@@ -119,7 +122,7 @@ class Store extends Session
      */
     public function hasAny(string|array $key): bool
     {
-        $keys = is_array($keys) ? $keys : func_get_args();
+        $keys = is_array($key) ? $key : func_get_args();
 
         foreach ($keys as $key) {
             if ($this->exists($key) && null !== $this->get($key)) {
@@ -187,6 +190,9 @@ class Store extends Session
      */
     public function replace(array $attributes): void
     {
+		$this->flush();
+		$this->regenerateToken();
+
         $this->put($attributes);
     }
 

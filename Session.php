@@ -11,16 +11,16 @@
 
 namespace BlitzPHP\Session;
 
-use BlitzPHP\Cache\Handlers\ArrayHandler;
-use BlitzPHP\Cache\Handlers\File;
-use BlitzPHP\Cache\Handlers\Memcached;
 use BlitzPHP\Contracts\Database\ConnectionInterface;
 use BlitzPHP\Contracts\Session\SessionInterface;
 use BlitzPHP\Session\Cookie\Cookie;
+use BlitzPHP\Session\Handlers\ArrayHandler;
 use BlitzPHP\Session\Handlers\BaseHandler;
 use BlitzPHP\Session\Handlers\Database;
 use BlitzPHP\Session\Handlers\Database\MySQL;
 use BlitzPHP\Session\Handlers\Database\Postgre;
+use BlitzPHP\Session\Handlers\File;
+use BlitzPHP\Session\Handlers\Memcached;
 use BlitzPHP\Session\Handlers\Redis;
 use BlitzPHP\Utilities\DateTime\Date;
 use BlitzPHP\Utilities\Helpers;
@@ -215,7 +215,9 @@ class Session implements SessionInterface
             ));
         }
 
-        $adapter->setLogger($this->logger);
+		if ($this->logger) {
+			$adapter->setLogger($this->logger);
+		}
 
         if ($adapter instanceof Database) {
             $adapter->setDatabase($this->db);
@@ -266,25 +268,25 @@ class Session implements SessionInterface
     public function start(): ?self
     {
 		 if ($this->started) {
-            $this->logger->warning('Session: La session a déjà été démarrée.');
+			$this->logMessage('Session: La session a déjà été démarrée.', 'warning');
 
             return $this;
         }
 
         if (Helpers::isCli() && ! $this->onTest()) {
-            $this->logger->debug('Session: Initialisation en mode CLI annulée.');
+			$this->logMessage('Session: Initialisation en mode CLI annulée.', 'debug');
 
             return null;
         }
 
         if ((bool) ini_get('session.auto_start')) {
-            $this->logger->error('Session: session.auto_start est activé dans php.ini. Abandon.');
+            $this->logMessage('Session: session.auto_start est activé dans php.ini. Abandon.', 'error');
 
             return null;
         }
 
         if (session_status() === PHP_SESSION_ACTIVE) {
-            $this->logger->warning('Session: Une session est déjà active.');
+            $this->logMessage('Session: Une session est déjà active.', 'warning');
 
             return null;
         }
@@ -298,7 +300,10 @@ class Session implements SessionInterface
         $this->initVars();
 
 		$this->started = true;
-        $this->logger->debug("Session: Classe initialisée avec '" . Helpers::classBasename($this->factory()) . "'");
+        $this->logMessage(
+			sprintf("Session: Classe initialisée avec '%s'", Helpers::classBasename($this->factory())),
+			'debug'
+		);
 
         return $this;
     }
@@ -313,7 +318,7 @@ class Session implements SessionInterface
         if (isset($_COOKIE[$cookieName]) &&
             (!is_string($_COOKIE[$cookieName]) || preg_match('#\A' . $this->sidRegexp . '\z#', $_COOKIE[$cookieName])) !== 1) {
             unset($_COOKIE[$cookieName]);
-            $this->logger->warning('Session: Cookie de session invalide détecté et supprimé.');
+            $this->logMessage('Session: Cookie de session invalide détecté et supprimé.', 'warning');
         }
     }
 
@@ -359,8 +364,10 @@ class Session implements SessionInterface
      */
     public function regenerate(bool $destroy = false): void
     {
-        $_SESSION['__blitz_last_regenerate'] = Date::now()->getTimestamp();
-        session_regenerate_id($destroy);
+		if (session_status() === PHP_SESSION_ACTIVE) {
+			$_SESSION['__blitz_last_regenerate'] = Date::now()->getTimestamp();
+			session_regenerate_id($destroy);
+		}
 
         // $this->removeOldSessionCookie();
     }
@@ -453,13 +460,7 @@ class Session implements SessionInterface
 
         $keys = is_array($key) ? $key : func_get_args();
 
-        foreach ($keys as $key) {
-            if (! isset($_SESSION[$key])) {
-                return false;
-            }
-        }
-
-        return true;
+		return Arr::has($_SESSION, $keys);
     }
 
     /**
@@ -537,7 +538,7 @@ class Session implements SessionInterface
     /**
      * {@inheritDoc}
      */
-    public function getFlashdata(?string $key = null): ?array
+    public function getFlashdata(?string $key = null): mixed
     {
 		$_SESSION['__blitz_vars'] ??= [];
 
@@ -883,6 +884,13 @@ class Session implements SessionInterface
 
         if ($_SESSION['__blitz_vars'] === []) {
             unset($_SESSION['__blitz_vars']);
+        }
+    }
+
+	public function logMessage(string $message, $level = 'error')
+    {
+        if ($this->logger) {
+            $this->logger->log($level, $message);
         }
     }
 

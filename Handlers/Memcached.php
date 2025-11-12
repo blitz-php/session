@@ -12,7 +12,7 @@
 namespace BlitzPHP\Session\Handlers;
 
 use BlitzPHP\Session\SessionException;
-use BlitzPHP\Utilities\Date;
+use BlitzPHP\Utilities\DateTime\Date;
 use Memcached as BaseMemcached;
 
 /**
@@ -39,20 +39,18 @@ class Memcached extends BaseHandler
     {
         parent::init($config, $ipAddress);
 
-        if (empty($this->_config['savePath'])) {
+        if (empty($this->savePath)) {
             throw SessionException::emptySavepath();
         }
 
         // Ajouter un nom de cookie de session pour plusieurs cookies de session.
-        $this->_config['keyPrefix'] .= $this->_config['cookie_name'];
+        $this->keyPrefix .= $this->cookieName . ':';
 
-        if ($this->_config['matchIP'] === true) {
-            $this->_config['keyPrefix'] .= $this->ipAddress . ':';
+        if ($this->matchIP === true) {
+            $this->keyPrefix .= $this->ipAddress . ':';
         }
 
-        if (! empty($this->_config['keyPrefix'])) {
-            ini_set('memcached.sess_prefix', $this->_config['keyPrefix']);
-        }
+		ini_set('memcached.sess_prefix', $this->keyPrefix);
 
         return true;
     }
@@ -72,15 +70,15 @@ class Memcached extends BaseHandler
         }
 
         if (
-            ! preg_match_all(
+            preg_match_all(
                 '#,?([^,:]+)\:(\d{1,5})(?:\:(\d+))?#',
-                $this->_config['savePath'],
+                $this->savePath,
                 $matches,
-                PREG_SET_ORDER
-            )
+                PREG_SET_ORDER,
+            ) < 1
         ) {
             $this->memcached = null;
-            $this->logMessage("Session\u{a0}: format de chemin d'enregistrement Memcached non valide\u{a0}:" . $this->_config['savePath']);
+            $this->logMessage("Session\u{a0}: format de chemin d'enregistrement Memcached non valide\u{a0}:" . $this->savePath);
 
             return false;
         }
@@ -105,7 +103,7 @@ class Memcached extends BaseHandler
             }
         }
 
-        if (empty($serverList)) {
+        if ($serverList === []) {
             $this->logMessage("Session\u{a0}: le pool de serveurs Memcached est vide.");
 
             return false;
@@ -124,7 +122,7 @@ class Memcached extends BaseHandler
                 $this->sessionID = $id;
             }
 
-            $data = (string) $this->memcached->get($this->_config['keyPrefix'] . $id);
+            $data = (string) $this->memcached->get($this->keyPrefix . $id);
 
             $this->fingerprint = md5($data);
 
@@ -156,7 +154,7 @@ class Memcached extends BaseHandler
             $this->memcached->replace($this->lockKey, Date::now()->getTimestamp(), 300);
 
             if ($this->fingerprint !== ($fingerprint = md5($data))) {
-                if ($this->memcached->set($this->_config['keyPrefix'] . $id, $data, $this->_config['expiration'])) {
+                if ($this->memcached->set($this->keyPrefix . $id, $data, $this->sessionExpiration)) {
                     $this->fingerprint = $fingerprint;
 
                     return true;
@@ -165,7 +163,7 @@ class Memcached extends BaseHandler
                 return false;
             }
 
-            return $this->memcached->touch($this->_config['keyPrefix'] . $id, $this->_config['expiration']);
+            return $this->memcached->touch($this->keyPrefix . $id, $this->sessionExpiration);
         }
 
         return false;
@@ -199,7 +197,7 @@ class Memcached extends BaseHandler
     public function destroy(string $id): bool
     {
         if (isset($this->memcached, $this->lockKey)) {
-            $this->memcached->delete($this->_config['keyPrefix'] . $id);
+            $this->memcached->delete($this->keyPrefix . $id);
 
             return $this->destroyCookie();
         }
@@ -216,7 +214,7 @@ class Memcached extends BaseHandler
             return $this->memcached->replace($this->lockKey, Date::now()->getTimestamp(), 300);
         }
 
-        $lockKey = $this->_config['keyPrefix'] . $sessionID . ':lock';
+        $lockKey = $this->keyPrefix . $sessionID . ':lock';
         $attempt = 0;
 
         do {
@@ -228,7 +226,7 @@ class Memcached extends BaseHandler
 
             if (! $this->memcached->set($lockKey, Date::now()->getTimestamp(), 300)) {
                 $this->logMessage(
-                    "Session\u{a0}: erreur lors de la tentative d'obtention du verrou pour" . $this->_config['keyPrefix'] . $sessionID
+                    "Session\u{a0}: erreur lors de la tentative d'obtention du verrou pour" . $this->keyPrefix . $sessionID
                 );
 
                 return false;
@@ -240,7 +238,7 @@ class Memcached extends BaseHandler
 
         if ($attempt === 30) {
             $this->logMessage(
-                'Session : Impossible d\'obtenir le verrou pour ' . $this->_config['keyPrefix'] . $sessionID . ' après 30 tentatives, abandon.'
+                'Session : Impossible d\'obtenir le verrou pour ' . $this->keyPrefix . $sessionID . ' après 30 tentatives, abandon.'
             );
 
             return false;

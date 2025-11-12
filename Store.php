@@ -15,21 +15,22 @@ use BlitzPHP\Utilities\Helpers;
 use BlitzPHP\Utilities\Iterable\Arr;
 use BlitzPHP\Utilities\String\Text;
 use Closure;
+use InvalidArgumentException;
 
 class Store extends Session
 {
     /**
      * {@inheritDoc}
      */
-    public function start()
+    public function start(): ?self
     {
         $status = parent::start();
 
-        if (! $this->has('_token')) {
+        if (null !== $status && ! $this->has('_token')) {
             $this->regenerateToken();
         }
 
-        return $status;
+        return $status === null ? null : $this;
     }
 
     /**
@@ -37,12 +38,15 @@ class Store extends Session
      */
     public function regenerate(bool $destroy = false): void
     {
-        $this->regenerateToken();
-        parent::regenerate($destroy);
+		if ($this->started) {
+			parent::regenerate($destroy);
+		}
+
+		$this->regenerateToken();
     }
 
     /**
-     * Obtenez un sous-ensemble des données de session.
+     * Récupère un sous-ensemble des données de session.
      */
     public function only(array $keys): array
     {
@@ -50,19 +54,93 @@ class Store extends Session
     }
 
     /**
-     * Vérifie si une clé existe.
+     * Récupère toutes les données de session sauf celles spécifiées.
+     */
+    public function except(array $keys): array
+    {
+        return Arr::except($this->all(), $keys);
+    }
+
+    /**
+     * Vérifie si une clé existe dans la session (inclut la vérification de null).
      */
     public function exists(array|string $key): bool
     {
         $keys = is_array($key) ? $key : func_get_args();
 
-        foreach ($keys as $key) {
-            if (! isset($_SESSION[$key])) {
+        foreach ($keys as $k) {
+            if (! array_key_exists($k, $_SESSION)) {
                 return false;
             }
         }
 
         return true;
+    }
+
+	/**
+	 * Récupère les données flash ou une valeur par défaut.
+	 */
+	public function flashed(?string $key = null, mixed $default = null): mixed
+	{
+		if (null !== $data = $this->getFlashdata($key)) {
+			return $data;
+		}
+
+		return Helpers::value($default);
+	}
+
+    /**
+     * Vide toutes les données de session sauf certaines clés.
+     */
+    public function flush(array $except = []): void
+    {
+        $allData = $this->all();
+
+        foreach ($allData as $key => $value) {
+            if (! in_array($key, $except)) {
+                $this->remove($key);
+            }
+        }
+    }
+
+    /**
+     * Récupère une ancienne valeur d'entrée.
+     */
+    public function getOldInput(?string $key = null, mixed $default = null): mixed
+    {
+        $oldInput = $this->flashed('_old_input', []);
+
+        if (null === $key) {
+            return $oldInput;
+        }
+
+        return Arr::get($oldInput, $key, $default);
+    }
+
+    /**
+     * Détermine si au moins une des clés existe et n'est pas nulle.
+     */
+    public function hasAny(string|array $key): bool
+    {
+        $keys = is_array($key) ? $key : func_get_args();
+
+        foreach ($keys as $key) {
+            if ($this->exists($key) && null !== $this->get($key)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Détermine si la session contient des anciennes entrées.
+     */
+    public function hasOldInput(?string $key = null): bool
+    {
+        $old = $this->getOldInput($key);
+
+        return null === $key ? ! empty($old) : null !== $old;
     }
 
     /**
@@ -78,44 +156,33 @@ class Store extends Session
      */
     public function get(?string $key = null, mixed $default = null): mixed
     {
-        if (null !== $value = parent::get($key)) {
+        $value = parent::get($key);
+
+        if ($key === null) {
             return $value;
         }
 
-        return $default;
+        return $value ?? Helpers::value($default);
     }
 
     /**
-     * Obtenez la valeur d'une clé donnée, puis effacez-la.
+     * Récupère la valeur puis la supprime.
      */
     public function pull(string $key, mixed $default = null): mixed
     {
-        $value = $this->get($key, $default);
-        $this->remove($key);
-
-        return $value;
+        return Helpers::tap($this->get($key, $default), function () use ($key) {
+            $this->remove($key);
+        });
     }
 
     /**
-     * Déterminez si la session contient d’anciennes entrées.
+     * Récupère et supprime un élément flash.
      */
-    public function hasOldInput(?string $key = null): bool
+    public function pullFlash(string $key, mixed $default = null): mixed
     {
-        $old = $this->getOldInput($key);
-
-        return null === $key ? count($old) > 0 : null !== $old;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function getOldInput($key = null, $default = null)
-    {
-        if (! null !== $value = parent::getOldInput($key)) {
-            return $value;
-        }
-
-        return $default;
+        return Helpers::tap($this->flashed($key, $default), function () use ($key) {
+            $this->remove($key);
+        });
     }
 
     /**
@@ -123,6 +190,9 @@ class Store extends Session
      */
     public function replace(array $attributes): void
     {
+		$this->flush();
+		$this->regenerateToken();
+
         $this->put($attributes);
     }
 
@@ -141,11 +211,15 @@ class Store extends Session
     }
 
     /**
-     * {@inheritDoc}
+     * Ajoute une valeur à un tableau dans la session.
      */
     public function push(string $key, mixed $value): void
     {
         $array = $this->get($key, []);
+
+        if (! is_array($array)) {
+            throw new InvalidArgumentException("La valeur de la clé '{$key}' n'est pas un tableau.");
+        }
 
         $array[] = $value;
 
@@ -157,44 +231,52 @@ class Store extends Session
      */
     public function increment(string $key, int $amount = 1): mixed
     {
-        $this->put($key, $value = $this->get($key, 0) + $amount);
+        $value = $this->get($key, 0);
 
-        return $value;
+        if (! is_numeric($value)) {
+            throw new InvalidArgumentException("La valeur de la clé '{$key}' n'est pas numérique.");
+        }
+
+        $newValue = $value + $amount;
+        $this->put($key, $newValue);
+
+        return $newValue;
     }
 
     /**
-     * Décrémenter la valeur d'un élément dans la session.
-     *
-     * @return int
+     * Décrémente la valeur d'un élément dans la session.
      */
-    public function decrement(string $key, int $amount = 1)
+    public function decrement(string $key, int $amount = 1): mixed
     {
         return $this->increment($key, $amount * -1);
     }
 
     /**
-     * Flashez une paire clé/valeur dans la session.
+     * Flashe une paire clé/valeur dans la session.
      */
-    public function flash(array|string $key, mixed $value = true): void
+    public function flash(array|string $key, mixed $value = null): void
     {
         $this->setFlashdata($key, $value);
     }
 
     /**
-     * Flashez un tableau d’entrée dans la session.
+     * Flashe un tableau d’entrées dans la session.
      */
     public function flashInput(array $value): void
     {
         $this->flash('_old_input', $value);
     }
 
+	/**
+     * Flashe des erreurs dans la session.
+     */
     public function flashErrors(array|string $errors, string $key = 'default'): array
     {
         if (is_string($errors)) {
             $errors = [$key => $errors];
         }
 
-        $_errors = $this->getFlashdata('errors') ?? [];
+        $_errors = $this->flashed('errors', []);
 
         $flashed = array_merge($_errors, $errors);
 
@@ -241,6 +323,14 @@ class Store extends Session
     public function regenerateToken(): void
     {
         $this->put('_token', Text::random(40));
+    }
+
+    /**
+     * Determine if the previous URI is available.
+     */
+    public function hasPreviousUri(): bool
+    {
+        return null !== $this->previousUrl();
     }
 
     /**

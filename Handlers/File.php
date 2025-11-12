@@ -12,13 +12,21 @@
 namespace BlitzPHP\Session\Handlers;
 
 use BlitzPHP\Session\SessionException;
-use BlitzPHP\Utilities\Date;
+use BlitzPHP\Utilities\DateTime\Date;
 
 /**
  * Gestionnaire de session utilisant les fichiers pour la persistance
  */
 class File extends BaseHandler
 {
+
+    /**
+     * Dossier dans lequel nous devons stocker les fichiers de session
+     *
+     * @var string
+     */
+    protected $savePath;
+
     /**
      * Le descripteur de fichier
      *
@@ -48,17 +56,17 @@ class File extends BaseHandler
     {
         parent::init($config, $ipAddress);
 
-        if (! empty($this->_config['savePath'])) {
-            $this->_config['savePath'] = rtrim($this->_config['savePath'], '/\\');
-            ini_set('session.save_path', $this->_config['savePath']);
+        if (! empty($this->savePath)) {
+            $this->savePath = rtrim($this->savePath, '/\\');
+            ini_set('session.save_path', $this->savePath);
         } else {
             $sessionPath = rtrim(ini_get('session.save_path'), '/\\');
 
-            if (! $sessionPath) {
+            if ($sessionPath === '') {
                 $sessionPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'blitz-php' . DIRECTORY_SEPARATOR . 'session';
             }
 
-            $this->_config['savePath'] = $sessionPath;
+            $this->savePath = $sessionPath;
         }
 
         $this->configureSessionIDRegex();
@@ -72,17 +80,17 @@ class File extends BaseHandler
     public function open(string $path, string $name): bool
     {
         if (! is_dir($path) && ! mkdir($path, 0o700, true)) {
-            throw SessionException::invalidSavePath($this->_config['savePath']);
+            throw SessionException::invalidSavePath($this->savePath);
         }
 
         if (! is_writable($path)) {
-            throw SessionException::writeProtectedSavePath($this->_config['savePath']);
+            throw SessionException::writeProtectedSavePath($this->savePath);
         }
 
-        $this->_config['savePath'] = $path;
+        $this->savePath = $path;
 
         // nous utiliserons le nom de la session comme préfixe pour éviter les collisions
-        $this->filePath = $this->_config['savePath'] . '/' . $name . ($this->_config['matchIP'] ? md5($this->ipAddress) : '');
+        $this->filePath = $this->savePath . '/' . $name . ($this->matchIP ? md5($this->ipAddress) : '');
 
         return true;
     }
@@ -165,9 +173,10 @@ class File extends BaseHandler
         }
 
         if (($length = strlen($data)) > 0) {
-            $result = null;
+			$result  = null;
+			$written = 0;
 
-            for ($written = 0; $written < $length; $written += $result) {
+            for (; $written < $length; $written += $result) {
                 if (($result = fwrite($this->fileHandle, substr($data, $written))) === false) {
                     break;
                 }
@@ -229,34 +238,34 @@ class File extends BaseHandler
      */
     public function gc(int $max_lifetime): false|int
     {
-        if (! is_dir($this->_config['savePath']) || ($directory = opendir($this->_config['savePath'])) === false) {
-            $this->logMessage("Session\u{a0}: le récupérateur de place n'a pas pu répertorier les fichiers dans le répertoire '" . $this->_config['savePath'] . "'.", 'debug');
+        if (! is_dir($this->savePath) || ($directory = opendir($this->savePath)) === false) {
+            $this->logMessage("Session\u{a0}: le récupérateur de place n'a pas pu répertorier les fichiers dans le répertoire '" . $this->savePath . "'.", 'debug');
 
             return false;
         }
 
         $ts = Date::now()->getTimestamp() - $max_lifetime;
 
-        $pattern = $this->_config['matchIP'] === true ? '[0-9a-f]{32}' : '';
+        $pattern = $this->matchIP === true ? '[0-9a-f]{32}' : '';
 
         $pattern = sprintf(
             '#\A%s' . $pattern . $this->sessionIDRegex . '\z#',
-            preg_quote($this->_config['cookie_name'], '#')
+            preg_quote($this->cookieName, '#')
         );
 
         $collected = 0;
 
         while (($file = readdir($directory)) !== false) {
             // Si le nom du fichier ne correspond pas à ce modèle, ce n'est pas un fichier de session ou ce n'est pas le nôtre
-            if (! preg_match($pattern, $file)
-                || ! is_file($this->_config['savePath'] . DIRECTORY_SEPARATOR . $file)
-                || ($mtime = filemtime($this->_config['savePath'] . DIRECTORY_SEPARATOR . $file)) === false
+            if (preg_match($pattern, $file) !== 1
+                || ! is_file($this->savePath . DIRECTORY_SEPARATOR . $file)
+                || ($mtime = filemtime($this->savePath . DIRECTORY_SEPARATOR . $file)) === false
                 || $mtime > $ts
             ) {
                 continue;
             }
 
-            unlink($this->_config['savePath'] . DIRECTORY_SEPARATOR . $file);
+            unlink($this->savePath . DIRECTORY_SEPARATOR . $file);
             $collected++;
         }
 
@@ -266,33 +275,26 @@ class File extends BaseHandler
     }
 
     /**
-     * Configurer l'expression régulière de l'ID de session
+     * Configurer l'expression régulière de l'ID de session.
+	 *
+	 * Pour vous faciliter la vie, nous imposons les paramètres par défaut de PHP. Parce que PHP9 les impose.
+     * @see https://wiki.php.net/rfc/deprecations_php_8_4#sessionsid_length_and_sessionsid_bits_per_character
      */
     protected function configureSessionIDRegex()
     {
         $bitsPerCharacter = (int) ini_get('session.sid_bits_per_character');
-        $SIDLength        = (int) ini_get('session.sid_length');
+        $sidLength        = (int) ini_get('session.sid_length');
 
-        if (($bits = $SIDLength * $bitsPerCharacter) < 160) {
-            // Ajoutez autant de caractères que nécessaire pour atteindre au moins 160 bits
-            $SIDLength += (int) ceil((160 % $bits) / $bitsPerCharacter);
-            ini_set('session.sid_length', (string) $SIDLength);
+        // Nous forçons les valeurs par défaut de PHP.
+        if (PHP_VERSION_ID < 90000) {
+            if ($bitsPerCharacter !== 4) {
+                ini_set('session.sid_bits_per_character', '4');
+            }
+            if ($sidLength !== 32) {
+                ini_set('session.sid_length', '32');
+            }
         }
 
-        switch ($bitsPerCharacter) {
-            case 4:
-                $this->sessionIDRegex = '[0-9a-f]';
-                break;
-
-            case 5:
-                $this->sessionIDRegex = '[0-9a-v]';
-                break;
-
-            case 6:
-                $this->sessionIDRegex = '[0-9a-zA-Z,-]';
-                break;
-        }
-
-        $this->sessionIDRegex .= '{' . $SIDLength . '}';
+        $this->sessionIDRegex = '[0-9a-f]{32}';
     }
 }

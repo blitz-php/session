@@ -21,15 +21,15 @@ class Store extends Session
     /**
      * {@inheritDoc}
      */
-    public function start()
+    public function start(): ?self
     {
         $status = parent::start();
 
-        if (! $this->has('_token')) {
+        if (null !== $status && ! $this->has('_token')) {
             $this->regenerateToken();
         }
 
-        return $status;
+        return $status === null ? null : $this;
     }
 
     /**
@@ -37,12 +37,12 @@ class Store extends Session
      */
     public function regenerate(bool $destroy = false): void
     {
-        $this->regenerateToken();
         parent::regenerate($destroy);
+        $this->regenerateToken();
     }
 
     /**
-     * Obtenez un sous-ensemble des données de session.
+     * Récupère un sous-ensemble des données de session.
      */
     public function only(array $keys): array
     {
@@ -50,14 +50,14 @@ class Store extends Session
     }
 
     /**
-     * Vérifie si une clé existe.
+     * Vérifie si une clé existe (inclut la vérification de null).
      */
     public function exists(array|string $key): bool
     {
         $keys = is_array($key) ? $key : func_get_args();
 
-        foreach ($keys as $key) {
-            if (! isset($_SESSION[$key])) {
+        foreach ($keys as $k) {
+            if (!array_key_exists($k, $_SESSION)) {
                 return false;
             }
         }
@@ -78,44 +78,23 @@ class Store extends Session
      */
     public function get(?string $key = null, mixed $default = null): mixed
     {
-        if (null !== $value = parent::get($key)) {
+        $value = parent::get($key);
+
+        if ($key === null) {
             return $value;
         }
 
-        return $default;
+        return $value ?? $default;
     }
 
     /**
-     * Obtenez la valeur d'une clé donnée, puis effacez-la.
+     * Récupère la valeur puis la supprime
      */
     public function pull(string $key, mixed $default = null): mixed
     {
-        $value = $this->get($key, $default);
-        $this->remove($key);
-
-        return $value;
-    }
-
-    /**
-     * Déterminez si la session contient d’anciennes entrées.
-     */
-    public function hasOldInput(?string $key = null): bool
-    {
-        $old = $this->getOldInput($key);
-
-        return null === $key ? count($old) > 0 : null !== $old;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function getOldInput($key = null, $default = null)
-    {
-        if (! null !== $value = parent::getOldInput($key)) {
-            return $value;
-        }
-
-        return $default;
+        return Helpers::tap($this->get($key, $default), function () use ($key) {
+            $this->remove($key);
+        });
     }
 
     /**

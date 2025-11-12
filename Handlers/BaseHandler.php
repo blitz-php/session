@@ -11,13 +11,11 @@
 
 namespace BlitzPHP\Session\Handlers;
 
-use BlitzPHP\Traits\InstanceConfigTrait;
 use Psr\Log\LoggerAwareTrait;
 use SessionHandlerInterface;
 
 abstract class BaseHandler implements SessionHandlerInterface
 {
-    use InstanceConfigTrait;
     use LoggerAwareTrait;
 
     /**
@@ -27,8 +25,10 @@ abstract class BaseHandler implements SessionHandlerInterface
 
     /**
      * Verrouiller l'espace réservé.
+	 *
+	 * @var bool|string
      */
-    protected bool $lock = false;
+    protected $lock = false;
 
     /**
      * L'ID de la session courante
@@ -40,35 +40,47 @@ abstract class BaseHandler implements SessionHandlerInterface
      */
     protected string $ipAddress;
 
-    /**
-     * La configuration de session par défaut est remplacée dans la plupart des adaptateurs. Ceux-ci sont
-     * les clés communes à tous les adaptateurs. Si elle est remplacée, cette propriété n'est pas utilisée.
-     *
-     * - `cookie_prefix` @var string
-     * 			Préfixe ajouté à toutes les entrées. Bon pour quand vous avez besoin de partager un keyspace
-     * 			avec une autre configuration de session ou une autre application.
-     * - `cookie_domain` @var string Domaine des Cookies.
-     * - `cookie_name` @var string Nom du cookie à utiliser.
-     * - `cookie_path` @var string Chemin des Cookies.
-     * - `cookie_secure` @var bool Cookie sécurisé ?
-     * - `matchIP` @var bool Faire correspondre les adresses IP pour les cookies ?
-     * - `keyPrefix` @var string prefixe de la cle de session (memcached, redis, database)
-     * - `savePath` @var array|string Le "chemin d'enregistrement" de la session varie entre
-     * - `expiration` @var int Nombre de secondes jusqu'à la fin de la session.
-     *
-     * @var array<string, mixed>
+	/**
+     * Prefixe de la cle de session (memcached, redis, database).
      */
-    protected array $_defaultConfig = [
-        'savePath'      => [],
-        'keyPrefix'     => 'blitz_session:',
-        'cookie_prefix' => 'blitz_',
-        'cookie_path'   => '/',
-        'cookie_domain' => '',
-        'cookie_name'   => '',
-        'cookie_secure' => false,
-        'matchIP'       => false,
-        'expiration'    => 7200,
-    ];
+    protected string $keyPrefix = 'blitz_session:';
+
+    /**
+     * Domaine des cookies.
+     */
+    protected string $cookieDomain = '';
+
+    /**
+     * Chemin des Cookies.
+     */
+    protected string $cookiePath = '/';
+
+    /**
+     * Cookie sécurisé ?
+     */
+    protected bool $cookieSecure = false;
+
+    /**
+     * Nom du cookie à utiliser.
+     */
+    protected string $cookieName = '';
+
+	/**
+	 * Nombre de secondes jusqu'à la fin de la session.
+	 */
+	protected int $sessionExpiration = 7200;
+
+    /**
+     * Faire correspondre les adresses IP pour les cookies ?
+     */
+    protected bool $matchIP = false;
+
+    /**
+     * Le "chemin d'enregistrement" de la session
+     *
+     * @var array|string
+     */
+    protected $savePath;
 
     /**
      * Initialiser le moteur de session
@@ -82,8 +94,18 @@ abstract class BaseHandler implements SessionHandlerInterface
      */
     public function init(array $config, string $ipAddress): bool
     {
-        $this->setConfig($config);
-        $this->ipAddress = $ipAddress;
+		$config = (object) $config;
+
+		$this->ipAddress = $ipAddress;
+
+		$this->cookieDomain = $config->cookie_domain;
+		$this->cookiePath   = $config->cookie_path;
+		$this->cookieSecure = $config->cookie_secure;
+
+		$this->cookieName        = $config->cookie_name;
+		$this->matchIP           = $config->match_ip;
+		$this->savePath          = $config->save_path;
+		$this->sessionExpiration = $config->expiration;
 
         return true;
     }
@@ -93,11 +115,11 @@ abstract class BaseHandler implements SessionHandlerInterface
      */
     protected function destroyCookie(): bool
     {
-        return setcookie($this->_config['cookie_name'], '', [
+        return setcookie($this->cookieName, '', [
             'expires'  => 1,
-            'path'     => $this->_config['cookie_path'],
-            'domain'   => $this->_config['cookie_domain'],
-            'secure'   => $this->_config['cookie_secure'],
+            'path'     => $this->cookiePath,
+            'domain'   => $this->cookieDomain,
+            'secure'   => $this->cookieSecure,
             'httponly' => true,
         ]);
     }
@@ -133,7 +155,7 @@ abstract class BaseHandler implements SessionHandlerInterface
      */
     protected function fail(): bool
     {
-        ini_set('session.save_path', $this->_config['savePath']);
+        ini_set('session.save_path', $this->savePath);
 
         return false;
     }

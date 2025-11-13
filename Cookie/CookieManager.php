@@ -50,7 +50,7 @@ class CookieManager implements CookieManagerInterface
      */
     public function make(string $name, array|string $value, int $minutes = 0, array $options = []): Cookie
     {
-        $time = ($minutes === 0) ? 0 : $this->availableAt($minutes * 60);
+        $time = $minutes === 0 ? null : $this->availableAt($minutes * 60);
 
         return Cookie::create($name, $value, [
             'expires'  => $time,
@@ -67,7 +67,7 @@ class CookieManager implements CookieManagerInterface
      */
     public function forever(string $name, array|string $value, array $options = []): Cookie
     {
-        return $this->make($name, $value, 2628000, $options);
+        return $this->make($name, $value, 576000, $options);
     }
 
     /**
@@ -83,7 +83,7 @@ class CookieManager implements CookieManagerInterface
      */
     public function get(string $name, array $options = []): ?Cookie
     {
-        if (empty($value = $_COOKIE[$name])) {
+		if (! array_key_exists($name, $_COOKIE) || empty($value = $_COOKIE[$name])) {
             return null;
         }
 
@@ -95,7 +95,7 @@ class CookieManager implements CookieManagerInterface
      */
     public function has(string $name): bool
     {
-        return ! empty($_COOKIE[$name]);
+        return array_key_exists($name, $_COOKIE);
     }
 
     /**
@@ -107,4 +107,15 @@ class CookieManager implements CookieManagerInterface
 
         return $this;
     }
+
+	public function setDefaults(array $defaults): self
+	{
+		foreach ($defaults as $k => $v) {
+			if (property_exists($this, $k)) {
+				$this->{$k} = $v;
+			}
+		}
+
+		return $this;
+	}
 }

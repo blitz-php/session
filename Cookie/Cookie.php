@@ -12,7 +12,6 @@
 namespace BlitzPHP\Session\Cookie;
 
 use BlitzPHP\Contracts\Session\CookieInterface;
-use BlitzPHP\Utilities\Helpers;
 use BlitzPHP\Utilities\Iterable\Arr;
 use DateTime;
 use DateTimeImmutable;
@@ -23,18 +22,10 @@ use InvalidArgumentException;
 /**
  * Objet cookie pour créer un cookie et le transformer en valeur d'en-tête
  *
- * Un cookie HTTP (également appelé cookie Web, cookie Internet, cookie de navigateur ou
- * simplement cookie) est une petite donnée envoyée depuis un site Web et stockée sur
- * l'ordinateur de l'utilisateur par le navigateur Web de l'utilisateur pendant que l'utilisateur navigue.
+ * Un cookie HTTP est une petite donnée envoyée depuis un site Web et stockée
+ * sur l'ordinateur de l'utilisateur par le navigateur Web pendant la navigation.
  *
- * Les cookies ont été conçus pour être un mécanisme fiable permettant aux sites Web de se souvenir
- * informations avec état (telles que les articles ajoutés dans le panier d'achat en ligne
- * store) ou pour enregistrer l'activité de navigation de l'utilisateur (y compris les clics
- * boutons particuliers, connexion ou enregistrement des pages visitées
- * le passé). Ils peuvent également être utilisés pour mémoriser des informations arbitraires
- * que l'utilisateur a précédemment saisi dans les champs de formulaire tels que les noms et les préférences.
- *
- * Les objets cookies sont immuables et vous devez réaffecter les variables lors de la modification de l'objets cookies :
+ * Les objets cookies sont immuables - vous devez réaffecter les variables lors de la modification.
  *
  * ```
  * $cookie = $cookie->withValue('0');
@@ -51,66 +42,48 @@ class Cookie implements CookieInterface
 {
     /**
      * Nom du cookie
-     *
-     * @var string
      */
-    protected $name = '';
+    protected string $name = '';
 
     /**
-     * Valeur brute du cookie.
-     *
-     * @var array|string
+     * Valeur du cookie (peut être un tableau pour les données complexes)
      */
-    protected $value = '';
+    protected array|string $value = '';
 
     /**
      * Indique si une valeur JSON a été développée dans un tableau.
-     *
-     * @var bool
      */
-    protected $isExpanded = false;
+    protected bool $isExpanded = false;
 
     /**
      * Date d'expiration
-     *
-     * @var DateTime|DateTimeImmutable|null
      */
-    protected $expiresAt;
+    protected ?DateTimeInterface $expiresAt = null;
 
     /**
      * Chemin
-     *
-     * @var string
      */
-    protected $path = '/';
+    protected string $path = '/';
 
     /**
      * Domaine
-     *
-     * @var string
      */
-    protected $domain = '';
+    protected string $domain = '';
 
     /**
      * Securisé ?
-     *
-     * @var bool
      */
-    protected $secure = false;
+    protected bool $secure = false;
 
     /**
      * Uniquement via HTTP ?
-     *
-     * @var bool
      */
-    protected $httpOnly = false;
+    protected bool $httpOnly = false;
 
     /**
-     * Samesite
-     *
-     * @var string|null
+     * Politique SameSite
      */
-    protected $sameSite;
+    protected ?string $sameSite = null;
 
     /**
      * Attributs par défaut pour un cookie.
@@ -129,16 +102,16 @@ class Cookie implements CookieInterface
     ];
 
     /**
-     * Constructor
+     * Constructeur
      *
-     * Les arguments des constructeurs sont similaires à la méthode native PHP `setcookie()`.
-     * La seule différence est le 3ème argument qui excepte null ou un
-     * Objet DateTime ou DateTimeImmutable à la place d'un entier.
-     *
-     * @see http://php.net/manual/en/function.setcookie.php
-     *
-     * @param array|string                    $value     Valeur du cookie
-     * @param DateTime|DateTimeImmutable|null $expiresAt
+     * @param string $name Nom du cookie
+     * @param array|string|float|int|bool $value Valeur du cookie
+     * @param DateTimeInterface|null $expiresAt Date d'expiration
+     * @param string|null $path Chemin
+     * @param string|null $domain Domaine
+     * @param bool|null $secure Sécurisé
+     * @param bool|null $httpOnly HTTP seulement
+     * @param string|null $sameSite Politique SameSite
      */
     public function __construct(
         string $name,
@@ -153,12 +126,15 @@ class Cookie implements CookieInterface
         $this->validateName($name);
         $this->name = $name;
 
-        $this->_setValue($value);
+        $this->setValue($value);
 
-        $this->domain   = $domain ?? static::$defaults['domain'];
-        $this->httpOnly = $httpOnly ?? static::$defaults['httponly'];
+        // Utilisation des valeurs par défaut si non spécifiées
         $this->path     = $path ?? static::$defaults['path'];
+        $this->domain   = $domain ?? static::$defaults['domain'];
         $this->secure   = $secure ?? static::$defaults['secure'];
+        $this->httpOnly = $httpOnly ?? static::$defaults['httponly'];
+
+        // Validation SameSite
         if ($sameSite === null) {
             $this->sameSite = static::$defaults['samesite'];
         } else {
@@ -166,16 +142,27 @@ class Cookie implements CookieInterface
             $this->sameSite = $sameSite;
         }
 
-        if ($expiresAt) {
-            $expiresAt = $expiresAt->setTimezone(new DateTimeZone('GMT'));
-        } else {
-            $expiresAt = static::$defaults['expires'];
-        }
-        $this->expiresAt = $expiresAt;
+        // Gestion du fuseau horaire pour l'expiration
+        $this->expiresAt = $this->normalizeExpiration($expiresAt);
     }
 
     /**
-     * Définissez les options par défaut pour les cookies.
+     * Normalise la date d'expiration avec le fuseau horaire GMT
+     */
+    protected function normalizeExpiration(?DateTimeInterface $expiresAt): ?DateTimeInterface
+    {
+        if ($expiresAt === null) {
+            return static::$defaults['expires'];
+        }
+
+        /** @var \DateTime $expiresAt Clonage pour éviter les effets de bord */
+        $expiresAt = clone $expiresAt;
+
+        return $expiresAt->setTimezone(new DateTimeZone('GMT'));
+    }
+
+	/**
+     * Définit les options par défaut pour les cookies
      *
      * Les options valides sont :
      *
@@ -190,7 +177,7 @@ class Cookie implements CookieInterface
     public static function setDefaults(array $options): void
     {
         if (isset($options['expires'])) {
-            $options['expires'] = static::dateTimeInstance($options['expires']);
+            $options['expires'] = static::createDateTimeInstance($options['expires']);
         }
         if (isset($options['samesite'])) {
             static::validateSameSiteValue($options['samesite']);
@@ -200,16 +187,16 @@ class Cookie implements CookieInterface
     }
 
     /**
-     * Méthode d'usine pour créer des instances de Cookie.
+     * Méthode de fabrication pour créer des instances de Cookie
      *
-     * @see \BlitzPHP\Session\Cookie\Cookie::setDefaults()
-     *
-     * @param mixed $value
+     * @param string $name Nom du cookie
+     * @param array|string|float|int|bool $value Valeur du cookie
+     * @param array<string, mixed> $options Options du cookie
      */
     public static function create(string $name, $value, array $options = []): static
     {
-        $options += static::$defaults;
-        $options['expires'] = static::dateTimeInstance($options['expires']);
+		$options            += static::$defaults;
+		$options['expires']  = static::createDateTimeInstance($options['expires']);
 
         return new static(
             $name,
@@ -224,127 +211,136 @@ class Cookie implements CookieInterface
     }
 
     /**
-     * Convertit la valeur d'expiration non nulle en instance DateTimeInterface.
-     *
-     * @param mixed $expires Expiry value.
-     *
-     * @return DateTime|DateTimeImmutable|null
-     */
-    protected static function dateTimeInstance($expires): ?DateTimeInterface
+     * Crée une instance DateTimeInterface à partir de différentes représentations
+	 */
+    protected static function createDateTimeInstance(DateTimeInterface|string|int|null $expires): ?DateTimeInterface
     {
         if ($expires === null) {
             return null;
         }
 
         if ($expires instanceof DateTimeInterface) {
-            /** @psalm-suppress UndefinedInterfaceMethod */
-            return $expires->setTimezone(new DateTimeZone('GMT')); // @phpstan-ignore-line
+            return $expires->setTimezone(new DateTimeZone('GMT'));
         }
 
-        if (! is_string($expires) && ! is_int($expires)) {
-            throw new InvalidArgumentException(sprintf(
-                'Type non valide `%s` pour expire. Attendu une chaîne, un entier ou un objet DateTime.',
-                Helpers::typeName($expires)
-            ));
-        }
-
+        // Conversion des chaînes de date
         if (! is_numeric($expires)) {
-            $expires = strtotime($expires) ?: null;
+            $timestamp = strtotime($expires);
+            $expires = $timestamp !== false ? $timestamp : null;
         }
 
         if ($expires !== null) {
-            $expires = new DateTimeImmutable('@' . (string) $expires);
+            return new DateTimeImmutable('@' . $expires);
         }
 
-        return $expires;
+        return null;
     }
 
     /**
-     * Créez une instance de cookie à partir de la chaîne d'en-tête "set-cookie".
+     * Crée un cookie à partir d'une chaîne d'en-tête "Set-Cookie"
      *
-     * @param string $cookie Chaîne d'en-tête de cookie.
-     *
-     * @see \BlitzPHP\Session\Cookie\Cookie::setDefaults()
+	 * @param array<string, mixed> $defaults Attributs par defaut.
      */
     public static function createFromHeaderString(string $cookie, array $defaults = []): static
+    {
+        $parts = static::parseHeaderString($cookie);
+        $nameValue = explode('=', (string)array_shift($parts), 2);
+
+        $name = urldecode($nameValue[0] ?? '');
+        $value = urldecode($nameValue[1] ?? '');
+
+        $data = ['name'  => $name, 'value' => $value] + $defaults;
+
+        // Traitement des attributs
+        foreach ($parts as $part) {
+            $attribute = static::parseCookieAttribute($part);
+            $data = static::processCookieAttribute($data, $attribute);
+        }
+
+        return static::create($data['name'], $data['value'], $data);
+    }
+
+    /**
+     * Parse la chaîne d'en-tête du cookie
+     */
+    protected static function parseHeaderString(string $cookie): array
     {
         if (str_contains($cookie, '";"')) {
             $cookie = str_replace('";"', '{__cookie_replace__}', $cookie);
             $parts  = str_replace('{__cookie_replace__}', '";"', explode(';', $cookie));
         } else {
-            $parts = preg_split('/\;[ \t]*/', $cookie);
+            $parts = preg_split('/\;[ \t]*/', $cookie) ?: [];
         }
 
-        [$name, $value] = explode('=', array_shift($parts), 2);
-        $data           = [
-            'name'  => urldecode($name),
-            'value' => urldecode($value),
-        ] + $defaults;
-
-        foreach ($parts as $part) {
-            if (str_contains($part, '=')) {
-                [$key, $value] = explode('=', $part);
-            } else {
-                $key   = $part;
-                $value = true;
-            }
-
-            $key        = strtolower($key);
-            $data[$key] = $value;
-        }
-
-        if (isset($data['max-age'])) {
-            $data['expires'] = time() + (int) $data['max-age'];
-            unset($data['max-age']);
-        }
-
-        if (isset($data['samesite'])) {
-            // Ignorer la valeur non valide lors de l'analyse des en-têtes
-            // https://tools.ietf.org/html/draft-west-first-party-cookies-07#section-4.1
-            if (! in_array($data['samesite'], CookieInterface::SAMESITE_VALUES, true)) {
-                unset($data['samesite']);
-            }
-        }
-
-        $name  = (string) $data['name'];
-        $value = (string) $data['value'];
-        unset($data['name'], $data['value']);
-
-        return static::create($name, $value, $data);
+        return array_filter($parts);
     }
 
     /**
-     * Renvoie une valeur d'en-tête sous forme de chaîne
+     * Parse un attribut de cookie
+     */
+    protected static function parseCookieAttribute(string $part): array
+    {
+        if (str_contains($part, '=')) {
+            [$key, $value] = explode('=', $part, 2);
+        } else {
+            $key   = $part;
+            $value = true;
+        }
+
+        return [
+            'key'   => strtolower(trim($key)),
+            'value' => trim($value)
+        ];
+    }
+
+    /**
+     * Traite un attribut de cookie
+     */
+    protected static function processCookieAttribute(array $data, array $attribute): array
+    {
+        switch ($attribute['key']) {
+            case 'max-age':
+                $data['expires'] = time() + (int)$attribute['value'];
+                break;
+
+            case 'samesite':
+                if (in_array($attribute['value'], CookieInterface::SAMESITE_VALUES, true)) {
+                    $data['samesite'] = $attribute['value'];
+                }
+                break;
+
+            case 'expires':
+            case 'path':
+            case 'domain':
+            case 'secure':
+            case 'httponly':
+                $data[$attribute['key']] = $attribute['value'];
+                break;
+        }
+
+        return $data;
+    }
+
+    /**
+     * Convertit le cookie en chaîne d'en-tête
      */
     public function toHeaderValue(): string
     {
-        $value = $this->value;
-        if ($this->isExpanded) {
-            /** @psalm-suppress PossiblyInvalidArgument */
-            $value = $this->_flatten($this->value);
-        }
-        $headerValue = [];
-        /** @psalm-suppress PossiblyInvalidArgument */
-        $headerValue[] = sprintf('%s=%s', $this->name, rawurlencode($value));
+        $headerValue = [
+            sprintf('%s=%s', $this->name, rawurlencode($this->getScalarValue()))
+        ];
 
-        if ($this->expiresAt) {
-            $headerValue[] = sprintf('expires=%s', $this->getFormattedExpires());
-        }
-        if ($this->path !== '') {
-            $headerValue[] = sprintf('path=%s', $this->path);
-        }
-        if ($this->domain !== '') {
-            $headerValue[] = sprintf('domain=%s', $this->domain);
-        }
-        if ($this->sameSite) {
-            $headerValue[] = sprintf('samesite=%s', $this->sameSite);
-        }
-        if ($this->secure) {
-            $headerValue[] = 'secure';
-        }
-        if ($this->httpOnly) {
-            $headerValue[] = 'httponly';
-        }
+        // Ajout des attributs conditionnels
+        $attributes = [
+            'expires'  => $this->expiresAt ? sprintf('expires=%s', $this->getFormattedExpires()) : null,
+            'path'     => $this->path !== '' ? sprintf('path=%s', $this->path) : null,
+            'domain'   => $this->domain !== '' ? sprintf('domain=%s', $this->domain) : null,
+            'samesite' => $this->sameSite ? sprintf('samesite=%s', $this->sameSite) : null,
+            'secure'   => $this->secure ? 'secure' : null,
+            'httponly' => $this->httpOnly ? 'httponly' : null,
+        ];
+
+        $headerValue = array_merge($headerValue, array_filter($attributes));
 
         return implode('; ', $headerValue);
     }
@@ -366,7 +362,7 @@ class Cookie implements CookieInterface
      */
     public function getId(): string
     {
-        return "{$this->name};{$this->domain};{$this->path}";
+        return implode(';', [$this->name, $this->domain, $this->path]);
     }
 
     /**
@@ -386,21 +382,21 @@ class Cookie implements CookieInterface
      */
     protected function validateName(string $name): void
     {
-        if (preg_match("/[=,;\t\r\n\013\014]/", $name)) {
-            throw new InvalidArgumentException(
-                sprintf('The cookie name `%s` contains invalid characters.', $name)
-            );
+        if (empty($name)) {
+            throw new InvalidArgumentException('Le nom du cookie ne peut pas être vide.');
         }
 
-        if (empty($name)) {
-            throw new InvalidArgumentException('The cookie name cannot be empty.');
+        if (preg_match("/[=,;\t\r\n\013\014]/", $name)) {
+            throw new InvalidArgumentException(
+                sprintf('Le nom du cookie "%s" contient des caractères invalides.', $name)
+            );
         }
     }
 
     /**
      * {@inheritDoc}
      */
-    public function getValue()
+    public function getValue(): array|string
     {
         return $this->value;
     }
@@ -408,12 +404,15 @@ class Cookie implements CookieInterface
     /**
      * {@inheritDoc}
      */
-    public function getScalarValue()
+    public function getScalarValue(): string
     {
         if ($this->isExpanded) {
-            /** @psalm-suppress PossiblyInvalidArgument */
-            return $this->_flatten($this->value);
+            assert(is_array($this->value), '$value est un tableau');
+
+            return $this->flattenValue($this->value);
         }
+
+		assert(is_string($this->value), '$value est une chaine');
 
         return $this->value;
     }
@@ -424,20 +423,20 @@ class Cookie implements CookieInterface
     public function withValue($value): static
     {
         $new = clone $this;
-        $new->_setValue($value);
+        $new->setValue($value);
 
         return $new;
     }
 
     /**
-     * Setter pour l'attribut de valeur.
+     * Définit la valeur du cookie.
      *
-     * @param array|string $value
+     * @param array|string|float|int|bool $value The value to store.
      */
-    protected function _setValue($value): void
+    protected function setValue($value): void
     {
         $this->isExpanded = is_array($value);
-        $this->value      = $value;
+        $this->value      = is_array($value) ? $value : (string)$value;
     }
 
     /**
@@ -462,7 +461,7 @@ class Cookie implements CookieInterface
     /**
      * {@inheritDoc}
      */
-    public function withDomain(string $domain)
+    public function withDomain(string $domain): static
     {
         $new         = clone $this;
         $new->domain = $domain;
@@ -519,8 +518,12 @@ class Cookie implements CookieInterface
     /**
      * {@inheritDoc}
      */
-    public function withExpiry($dateTime): static
+    public function withExpiry(DateTimeInterface $dateTime): static
     {
+        if ($dateTime instanceof DateTime) {
+            $dateTime = clone $dateTime;
+        }
+
         $new            = clone $this;
         $new->expiresAt = $dateTime->setTimezone(new DateTimeZone('GMT'));
 
@@ -533,7 +536,7 @@ class Cookie implements CookieInterface
     public function withExpires(mixed $expires): static
     {
         if (! $expires instanceof DateTimeInterface) {
-            $expires = static::dateTimeInstance($expires);
+            $expires = static::createDateTimeInstance($expires);
         }
 
         return $this->withExpiry($expires);
@@ -542,7 +545,7 @@ class Cookie implements CookieInterface
     /**
      * {@inheritDoc}
      */
-    public function getExpiry()
+    public function getExpiry(): ?DateTimeInterface
     {
         return $this->expiresAt;
     }
@@ -574,10 +577,14 @@ class Cookie implements CookieInterface
     /**
      * {@inheritDoc}
      */
-    public function isExpired($time = null): bool
+    public function isExpired(?DateTimeInterface $time = null): bool
     {
         $time = $time ?: new DateTimeImmutable('now', new DateTimeZone('UTC'));
-        if (! $this->expiresAt) {
+        if ($time instanceof DateTime) {
+            $time = clone $time;
+        }
+
+        if (!$this->expiresAt) {
             return false;
         }
 
@@ -587,7 +594,7 @@ class Cookie implements CookieInterface
     /**
      * {@inheritDoc}
      */
-    public function withNeverExpire()
+    public function withNeverExpire(): static
     {
         $new            = clone $this;
         $new->expiresAt = new DateTimeImmutable('2038-01-01');
@@ -598,10 +605,10 @@ class Cookie implements CookieInterface
     /**
      * {@inheritDoc}
      */
-    public function withExpired()
+    public function withExpired(): static
     {
         $new            = clone $this;
-        $new->expiresAt = new DateTimeImmutable('1970-01-01 00:00:01');
+        $new->expiresAt = new DateTimeImmutable('@1');
 
         return $new;
     }
@@ -617,7 +624,7 @@ class Cookie implements CookieInterface
     /**
      * {@inheritDoc}
      */
-    public function withSameSite(?string $sameSite)
+    public function withSameSite(?string $sameSite): static
     {
         if ($sameSite !== null) {
             $this->validateSameSiteValue($sameSite);
@@ -645,35 +652,24 @@ class Cookie implements CookieInterface
 
     /**
      * Vérifie si une valeur existe dans les données du cookie.
-     *
-     * Cette méthode étendra les données complexes sérialisées,
-     * à la première utilisation.
      */
     public function check(string $path): bool
     {
-        if ($this->isExpanded === false) {
-            /** @psalm-suppress PossiblyInvalidArgument */
-            $this->value = $this->_expand($this->value);
-        }
-
-        /** @psalm-suppress PossiblyInvalidArgument */
-        return Arr::check($this->value, $path);
+        return Arr::check($this->getExpandedValue(), $path);
     }
 
     /**
      * Créer un nouveau cookie avec des données mises à jour.
-     *
-     * @param mixed $value
      */
-    public function withAddedValue(string $path, $value): static
+    public function withAddedValue(string $path, mixed $value): static
     {
         $new = clone $this;
         if ($new->isExpanded === false) {
-            /** @psalm-suppress PossiblyInvalidArgument */
-            $new->value = $new->_expand($new->value);
+            assert(is_string($new->value), '$value is not a string');
+            $new->value = $new->expandValue($new->value);
         }
 
-        /** @psalm-suppress PossiblyInvalidArgument */
+        assert(is_array($new->value), '$value is not an array');
         $new->value = Arr::insert($new->value, $path, $value);
 
         return $new;
@@ -686,11 +682,11 @@ class Cookie implements CookieInterface
     {
         $new = clone $this;
         if ($new->isExpanded === false) {
-            /** @psalm-suppress PossiblyInvalidArgument */
-            $new->value = $new->_expand($new->value);
+            assert(is_string($new->value), '$value is not a array');
+            $new->value = $new->expandValue($new->value);
         }
 
-        /** @psalm-suppress PossiblyInvalidArgument */
+        assert(is_array($new->value), '$value is not a string');
         $new->value = Arr::remove($new->value, $path);
 
         return $new;
@@ -702,19 +698,15 @@ class Cookie implements CookieInterface
      * Cette méthode étendra les données complexes sérialisées,
      * à la première utilisation.
      */
-    public function read(?string $path = null)
+    public function read(?string $path = null): mixed
     {
-        if ($this->isExpanded === false) {
-            /** @psalm-suppress PossiblyInvalidArgument */
-            $this->value = $this->_expand($this->value);
-        }
+        $value = $this->getExpandedValue();
 
         if ($path === null) {
-            return $this->value;
+            return $value;
         }
 
-        /** @psalm-suppress PossiblyInvalidArgument */
-        return Arr::get($this->value, $path);
+        return Arr::get($value, $path);
     }
 
     /**
@@ -757,43 +749,69 @@ class Cookie implements CookieInterface
     }
 
     /**
-     * La méthode Implode pour conserver les clés sont des tableaux multidimensionnels
+     * Aplatit un tableau en chaîne JSON
      *
-     * @param array $array Carte des clés et des valeurs
-     *
-     * @return string Une chaîne encodée JSON.
+     * @throws JsonException
      */
-    protected function _flatten(array $array): string
+    protected function flattenValue(array $array): string
     {
-        return json_encode($array);
+        return json_encode($array, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
     }
 
     /**
-     * Méthode Explode pour renvoyer le tableau à partir de la chaîne définie dans CookieComponent :: _flatten ()
-     * Maintient la rétrocompatibilité de lecture avec 1.x CookieComponent::_flatten().
-     *
-     * @param string $string Une chaîne contenant des données encodées JSON, ou une chaîne nue.
-     *
-     * @return array|string Carte des clés et des valeurs
+     * Récupère la valeur développée (étend le JSON si nécessaire)
      */
-    protected function _expand(string $string)
+    protected function getExpandedValue(): array
     {
-        $this->isExpanded = true;
-        $first            = substr($string, 0, 1);
-        if ($first === '{' || $first === '[') {
-            $ret = json_decode($string, true);
-
-            return $ret ?? $string;
+        if (!$this->isExpanded && is_string($this->value)) {
+            $this->value = $this->expandValue($this->value);
         }
 
-        $array = [];
+        return $this->value;
+    }
 
-        foreach (explode(',', $string) as $pair) {
-            $key = explode('|', $pair);
-            if (! isset($key[1])) {
-                return $key[0];
+    /**
+     * Développe une chaîne en tableau
+     */
+    protected function expandValue(string $string)
+    {
+        $this->isExpanded = true;
+
+        // Tentative de décodage JSON
+        if ($this->isJson($string)) {
+            $decoded = json_decode($string, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                return $decoded;
             }
-            $array[$key[0]] = $key[1];
+        }
+
+        // Fallback pour l'ancien format
+        return $this->expandLegacyFormat($string);
+    }
+
+    /**
+     * Vérifie si une chaîne est potentiellement du JSON
+     */
+    protected function isJson(string $string): bool
+    {
+        $firstChar = substr($string, 0, 1);
+        return $firstChar === '{' || $firstChar === '[';
+    }
+
+    /**
+     * Développe l'ancien format de sérialisation
+     */
+    protected function expandLegacyFormat(string $string)
+    {
+        $array = [];
+        $pairs = explode(',', $string);
+
+        foreach ($pairs as $pair) {
+            $parts = explode('|', $pair);
+            if (count($parts) === 1) {
+                return $parts[0]; // Valeur simple
+            }
+            $array[$parts[0]] = $parts[1];
         }
 
         return $array;

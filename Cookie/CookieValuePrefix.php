@@ -36,10 +36,18 @@ class CookieValuePrefix
      * Validez qu'une valeur de cookie contient un préfixe valide.
      * Si tel est le cas, renvoyez la valeur du cookie avec le préfixe supprimé. Sinon, renvoie null.
      */
-    public static function validate(string $cookieName, string $cookieValue, string $key): ?string
+    public static function validate(string $cookieName, string $cookieValue, array|string $keys): ?string
     {
-        $hasValidPrefix = str_starts_with($cookieValue, static::create($cookieName, $key));
+		$keys = is_string($keys) ? [$keys] : $keys;
 
-        return $hasValidPrefix ? static::remove($cookieValue) : null;
+		foreach ($keys as $key) {
+            $hasValidPrefix = str_starts_with($cookieValue, static::create($cookieName, $key));
+
+            if ($hasValidPrefix) {
+                return static::remove($cookieValue);
+            }
+        }
+
+        return null;
     }
 }

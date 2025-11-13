@@ -26,29 +26,32 @@ use Psr\Http\Message\ServerRequestInterface;
 use Traversable;
 
 /**
- * Fournit une collection immuable d'objets cookies. Ajout ou suppression
- * à une collection renvoie une *nouvelle* collection que vous devez conserver.
+ * Fournit une collection immuable d'objets cookies.
+ * Ajout ou suppression à une collection renvoie une *nouvelle* collection que vous devez conserver.
+ *
+ * @template-implements IteratorAggregate<string, CookieInterface>
+ * @phpstan-consistent-constructor
  *
  * @credit <a href="https://api.cakephp.org/4.3/class-Cake.Http.Cookie.CookieCollection.html">CakePHP - \Cake\Http\Cookie\CookieCollection</a>
  */
-/** @phpstan-consistent-constructor */
+
 class CookieCollection implements IteratorAggregate, Countable
 {
     /**
-     * Cbjets cookies
+     * Cookies stockés dans la collection
      *
-     * @var list<CookieInterface>
+     * @var array<string, CookieInterface>
      */
-    protected $cookies = [];
+    protected array $cookies = [];
 
     /**
      * Constructeur
      *
-     * @param list<CookieInterface> $cookies Tableau de cookies
+     * @param array<CookieInterface> $cookies Tableau de cookies
      */
     public function __construct(array $cookies = [])
     {
-        $this->checkCookies($cookies);
+        $this->validateCookies($cookies);
 
         foreach ($cookies as $cookie) {
             $this->cookies[$cookie->getId()] = $cookie;
@@ -56,20 +59,23 @@ class CookieCollection implements IteratorAggregate, Countable
     }
 
     /**
-     * Créer une collection de cookies à partir d'un tableau d'en-têtes Set-Cookie
+     * Crée une collection de cookies à partir d'un tableau d'en-têtes Set-Cookie
      *
-     * @param list<string>         $header   Le tableau des valeurs d'en-tête set-cookie.
-     * @param array<string, mixed> $defaults Les attributs par défaut.
+     * @param list<string> $headers Tableau des valeurs d'en-tête Set-Cookie
+     * @param array<string, mixed> $defaults Attributs par défaut pour les cookies
      */
-    public static function createFromHeader(array $header, array $defaults = []): static
+    public static function createFromHeader(array $headers, array $defaults = []): static
     {
         $cookies = [];
 
-        foreach ($header as $value) {
+        foreach ($headers as $header) {
             try {
-                $cookies[] = Cookie::createFromHeaderString($value, $defaults);
+                $cookies[] = Cookie::createFromHeaderString($header, $defaults);
             } catch (Exception $e) {
-                // Ne pas exploser sur les cookies invalides
+                // Log l'erreur mais continue avec les autres cookies valides
+                /* Helpers::triggerWarning(
+                    sprintf('CookieCollection: Impossible de parser l\'en-tête cookie - %s', $e->getMessage())
+                ); */
             }
         }
 
@@ -77,22 +83,22 @@ class CookieCollection implements IteratorAggregate, Countable
     }
 
     /**
-     * Créer une nouvelle collection à partir des cookies dans un ServerRequest
+     * Crée une nouvelle collection à partir des cookies d'une requête serveur
      */
     public static function createFromServerRequest(ServerRequestInterface $request): static
     {
-        $data    = $request->getCookieParams();
+        $cookieParams = $request->getCookieParams();
         $cookies = [];
 
-        foreach ($data as $name => $value) {
-            $cookies[] = new Cookie($name, $value);
+        foreach ($cookieParams as $name => $value) {
+            $cookies[] = Cookie::create((string) $name, $value);
         }
 
         return new static($cookies);
     }
 
     /**
-     * Obtenir le nombre de cookies dans la collection.
+     * Retourne le nombre de cookies dans la collection
      */
     public function count(): int
     {
@@ -100,11 +106,18 @@ class CookieCollection implements IteratorAggregate, Countable
     }
 
     /**
-     * Ajoutez un cookie et obtenez une collection mise à jour.
+     * Vérifie si la collection est vide
+     */
+    public function isEmpty(): bool
+    {
+        return empty($this->cookies);
+    }
+
+    /**
+     * Ajoute un cookie et retourne une nouvelle collection mise à jour
      *
-     * Les cookies sont stockés par identifiant. Cela signifie qu'il peut y avoir des doublons
-     * cookies si une collection de cookies est utilisée pour les cookies sur plusieurs
-     * domaines. Cela peut avoir un impact sur le comportement de get(), has() et remove().
+     * Les cookies sont stockés par ID (nom;domaine;chemin). Si un cookie avec le même
+     * ID existe déjà, il sera remplacé.
      */
     public function add(CookieInterface $cookie): static
     {
@@ -115,57 +128,114 @@ class CookieCollection implements IteratorAggregate, Countable
     }
 
     /**
-     * Obtenez le premier cookie par son nom.
+     * Ajoute plusieurs cookies à la collection
      *
-     * @throws InvalidArgumentException If cookie not found.
+     * @param array<CookieInterface> $cookies Cookies à ajouter
+     */
+    public function addMany(array $cookies): static
+    {
+        $new = clone $this;
+
+        foreach ($cookies as $cookie) {
+            if (!$cookie instanceof CookieInterface) {
+                throw new InvalidArgumentException(
+                    'Tous les éléments doivent implémenter CookieInterface'
+                );
+            }
+            $new->cookies[$cookie->getId()] = $cookie;
+        }
+
+        return $new;
+    }
+
+    /**
+     * Récupère le premier cookie correspondant au nom spécifié
+     *
+     * @throws InvalidArgumentException Si le cookie n'est pas trouvé
      */
     public function get(string $name): CookieInterface
     {
-        $key = mb_strtolower($name);
+        $cookie = $this->find($name);
+
+        if ($cookie === null) {
+            throw new InvalidArgumentException(
+                sprintf('Cookie "%s" non trouvé dans la collection', $name)
+            );
+        }
+
+        return $cookie;
+    }
+
+    /**
+     * Recherche le premier cookie correspondant au nom spécifié
+     */
+    public function find(string $name): ?CookieInterface
+    {
+        $name = mb_strtolower($name);
 
         foreach ($this->cookies as $cookie) {
-            if (mb_strtolower($cookie->getName()) === $key) {
+            if (mb_strtolower($cookie->getName()) === $name) {
                 return $cookie;
             }
         }
 
-        throw new InvalidArgumentException(
-            sprintf(
-                'Cookie %s not found. Use has() to check first for existence.',
-                $name
-            )
-        );
+        return null;
     }
 
     /**
-     * Vérifier si un cookie avec le nom donné existe
+     * Recherche tous les cookies correspondant au nom spécifié
+     *
+     * @return array<CookieInterface>
      */
-    public function has(string $name): bool
+    public function findAll(string $name): array
     {
-        $key = mb_strtolower($name);
+        $name = mb_strtolower($name);
+        $found = [];
 
         foreach ($this->cookies as $cookie) {
-            if (mb_strtolower($cookie->getName()) === $key) {
-                return true;
+            if (mb_strtolower($cookie->getName()) === $name) {
+                $found[] = $cookie;
             }
         }
 
-        return false;
+        return $found;
     }
 
     /**
-     * Créez une nouvelle collection avec tous les cookies correspondant à $name supprimés.
-     *
-     * Si le cookie n'est pas dans la collection, cette méthode ne fera rien.
+     * Vérifie si un cookie avec le nom spécifié existe dans la collection
+     */
+    public function has(string $name): bool
+    {
+        return $this->find($name) !== null;
+    }
+
+    /**
+     * Accesseur magique pour récupérer un cookie par son nom
+     */
+    public function __get(string $name): ?CookieInterface
+    {
+        return $this->find($name);
+    }
+
+    /**
+     * Vérificateur magique pour l'existence d'un cookie
+     */
+    public function __isset(string $name): bool
+    {
+        return $this->has($name);
+    }
+
+    /**
+     * Crée une nouvelle collection sans les cookies correspondant au nom spécifié
      */
     public function remove(string $name): static
     {
         $new = clone $this;
-        $key = mb_strtolower($name);
+        $name = mb_strtolower($name);
 
-        foreach ($new->cookies as $i => $cookie) {
-            if (mb_strtolower($cookie->getName()) === $key) {
-                unset($new->cookies[$i]);
+        foreach ($new->cookies as $id => $cookie) {
+            if (mb_strtolower($cookie->getName()) === $name) {
+                unset($new->cookies[$id]);
             }
         }
 
@@ -173,20 +243,62 @@ class CookieCollection implements IteratorAggregate, Countable
     }
 
     /**
-     * Vérifie si seuls des objets de cookie valides sont dans le tableau
+     * Crée une nouvelle collection sans les cookies spécifiés
      *
-     * @param list<CookieInterface> $cookies
+     * @param array<string> $names Noms des cookies à supprimer
+     */
+    public function removeMany(array $names): static
+    {
+        $new = clone $this;
+
+        foreach ($names as $name) {
+            $name = mb_strtolower($name);
+            foreach ($new->cookies as $id => $cookie) {
+                if (mb_strtolower($cookie->getName()) === $name) {
+                    unset($new->cookies[$id]);
+                }
+            }
+        }
+
+        return $new;
+    }
+
+    /**
+     * Filtre la collection en gardant seulement les cookies valides pour un contexte donné
+     *
+     * @param string $scheme Protocole (http/https)
+     * @param string $host Hôte de destination
+     * @param string $path Chemin de destination
+     */
+    public function filter(string $scheme, string $host, string $path): static
+    {
+        $matchingCookies = $this->findMatchingCookies($scheme, $host, $path);
+        $cookies = [];
+
+        foreach ($matchingCookies as $name => $value) {
+            $cookie = $this->find($name);
+            if ($cookie !== null) {
+                $cookies[] = $cookie;
+            }
+        }
+
+        return new static($cookies);
+    }
+
+    /**
+     * Vérifie que tous les éléments sont des instances valides de CookieInterface
+     *
+     * @param list<CookieInterface> $cookies Cookies à valider
      *
      * @throws InvalidArgumentException
      */
-    protected function checkCookies(array $cookies): void
+    protected function validateCookies(array $cookies): void
     {
         foreach ($cookies as $index => $cookie) {
-            if (! $cookie instanceof CookieInterface) {
+            if (!$cookie instanceof CookieInterface) {
                 throw new InvalidArgumentException(
                     sprintf(
-                        'Expected `%s[]` as $cookies but instead got `%s` at index %d',
-                        static::class,
+                        'Attendu un tableau de CookieInterface, mais reçu "%s" à l\'index %d',
                         Helpers::typeName($cookie),
                         $index
                     )
@@ -196,7 +308,7 @@ class CookieCollection implements IteratorAggregate, Countable
     }
 
     /**
-     * Obtient l'itérateur
+     * Retourne un itérateur pour parcourir la collection
      *
      * @return Traversable<string, CookieInterface>
      */
@@ -206,14 +318,34 @@ class CookieCollection implements IteratorAggregate, Countable
     }
 
     /**
-     * Ajoutez des cookies qui correspondent au chemin/domaine/expiration de la requête.
+     * Retourne tous les cookies sous forme de tableau
      *
-     * Cela permet aux CookieCollections d'être utilisées comme "cookie jar" dans un client HTTP
-     * situation. Cookies correspondant au domaine + chemin de la requête qui n'ont pas expiré
-     * lorsque cette méthode est appelée sera appliquée à la requête.
+     * @return array<string, CookieInterface>
+     */
+    public function toArray(): array
+    {
+        return $this->cookies;
+    }
+
+    /**
+     * Retourne les noms de tous les cookies dans la collection
      *
-     * @param array $extraCookies Tableau associatif de cookies supplémentaires à ajouter à la requête. Ceci
-     *                            est utile lorsque vous avez des données de cookies en dehors de la collection que vous souhaitez envoyer.
+     * @return array<string>
+     */
+    public function getNames(): array
+    {
+        return array_unique(
+            array_map(
+                fn (CookieInterface $cookie) => $cookie->getName(),
+                $this->cookies
+            )
+        );
+    }
+
+    /**
+     * Ajoute les cookies appropriés à une requête HTTP
+     *
+     * @param array<string, string> $extraCookies Cookies supplémentaires à ajouter
      */
     public function addToRequest(RequestInterface $request, array $extraCookies = []): RequestInterface
     {
@@ -223,66 +355,131 @@ class CookieCollection implements IteratorAggregate, Countable
             $uri->getHost(),
             $uri->getPath() ?: '/'
         );
-        $cookies     = array_merge($cookies, $extraCookies);
-        $cookiePairs = [];
 
-        foreach ($cookies as $key => $value) {
-            $cookie = sprintf('%s=%s', rawurlencode($key), rawurlencode($value));
-            $size   = strlen($cookie);
-            if ($size > 4096) {
-                trigger_warning(sprintf(
-                    'The cookie `%s` exceeds the recommended maximum cookie length of 4096 bytes.',
-                    $key
-                ));
-            }
-            $cookiePairs[] = $cookie;
-        }
+        $cookies = $extraCookies + $cookies;
 
-        if (empty($cookiePairs)) {
+        if (empty($cookies)) {
             return $request;
         }
+
+        $cookiePairs = $this->buildCookieHeader($cookies);
 
         return $request->withHeader('Cookie', implode('; ', $cookiePairs));
     }
 
     /**
-     * Rechercher les cookies correspondant au schéma, à l'hôte et au chemin
+     * Construit les paires cookie=valeur pour l'en-tête HTTP
+     *
+     * @param array<string, string> $cookies Cookies à inclure
+     *
+     * @return array<string>
      */
-    protected function findMatchingCookies(string $scheme, string $host, string $path): array
+    protected function buildCookieHeader(array $cookies): array
     {
-        $out = [];
-        $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $cookiePairs = [];
 
-        foreach ($this->cookies as $cookie) {
-            if ($scheme === 'http' && $cookie->isSecure()) {
-                continue;
-            }
-            if (! str_starts_with($path, $cookie->getPath())) {
-                continue;
-            }
-            $domain     = $cookie->getDomain();
-            $leadingDot = substr($domain, 0, 1) === '.';
-            if ($leadingDot) {
-                $domain = ltrim($domain, '.');
+        foreach ($cookies as $name => $value) {
+            $cookie = sprintf('%s=%s', rawurlencode($name), rawurlencode($value));
+
+            // Vérification de la longueur du cookie (RFC 6265)
+            if (strlen($cookie) > 4096) {
+                Helpers::triggerWarning(sprintf(
+                    'Le cookie "%s" dépasse la longueur maximale recommandée de 4096 octets',
+                    $name
+                ));
             }
 
-            if ($cookie->isExpired($now)) {
-                continue;
-            }
-
-            $pattern = '/' . preg_quote($domain, '/') . '$/';
-            if (! preg_match($pattern, $host)) {
-                continue;
-            }
-
-            $out[$cookie->getName()] = $cookie->getValue();
+            $cookiePairs[] = $cookie;
         }
 
-        return $out;
+        return $cookiePairs;
     }
 
     /**
-     * Créez une nouvelle collection qui inclut les cookies de la réponse.
+     * Trouve les cookies correspondant au schéma, hôte et chemin spécifiés
+     *
+     * @return array<string, string> Tableau associatif nom => valeur
+     */
+    protected function findMatchingCookies(string $scheme, string $host, string $path): array
+    {
+        $matches = [];
+        $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+
+        foreach ($this->cookies as $cookie) {
+            if (!$this->isCookieMatching($cookie, $scheme, $host, $path, $now)) {
+                continue;
+            }
+
+            $matches[$cookie->getName()] = $cookie->getScalarValue();
+        }
+
+        return $matches;
+    }
+
+    /**
+     * Vérifie si un cookie correspond aux critères de la requête
+     */
+    protected function isCookieMatching(
+        CookieInterface $cookie,
+        string $scheme,
+        string $host,
+        string $path,
+        DateTimeImmutable $now
+    ): bool {
+        // Vérification du protocole sécurisé
+        if ($scheme === 'http' && $cookie->isSecure()) {
+            return false;
+        }
+
+        // Vérification du chemin
+        if (!$this->isPathMatching($cookie->getPath(), $path)) {
+            return false;
+        }
+
+        // Vérification du domaine
+        if (!$this->isDomainMatching($cookie->getDomain(), $host)) {
+            return false;
+        }
+
+        // Vérification de l'expiration
+        if ($cookie->isExpired($now)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Vérifie la correspondance du chemin
+     */
+    protected function isPathMatching(string $cookiePath, string $requestPath): bool
+    {
+        return str_starts_with($requestPath, $cookiePath);
+    }
+
+    /**
+     * Vérifie la correspondance du domaine
+     */
+    protected function isDomainMatching(string $cookieDomain, string $requestHost): bool
+    {
+        // Domaine exact
+        if ($cookieDomain === $requestHost) {
+            return true;
+        }
+
+        // Domaine avec sous-domaines
+        if (str_starts_with($cookieDomain, '.')) {
+            $domain = ltrim($cookieDomain, '.');
+            $pattern = '/' . preg_quote($domain, '/') . '$/';
+
+            return (bool) preg_match($pattern, $requestHost);
+        }
+
+        return false;
+    }
+
+    /**
+     * Crée une nouvelle collection incluant les cookies d'une réponse HTTP
      */
     public function addFromResponse(ResponseInterface $response, RequestInterface $request): static
     {
@@ -290,37 +487,98 @@ class CookieCollection implements IteratorAggregate, Countable
         $host = $uri->getHost();
         $path = $uri->getPath() ?: '/';
 
-        $cookies = static::createFromHeader(
+        $responseCookies = static::createFromHeader(
             $response->getHeader('Set-Cookie'),
             ['domain' => $host, 'path' => $path]
         );
+
         $new = clone $this;
 
-        foreach ($cookies as $cookie) {
+        // Ajoute ou remplace les cookies de la réponse
+        foreach ($responseCookies as $cookie) {
             $new->cookies[$cookie->getId()] = $cookie;
         }
+
+        // Supprime les cookies expirés
         $new->removeExpiredCookies($host, $path);
 
         return $new;
     }
 
     /**
-     * Supprimez les cookies expirés de la collection.
+     * Supprime les cookies expirés de la collection
      */
     protected function removeExpiredCookies(string $host, string $path): void
     {
-        $time        = new DateTimeImmutable('now', new DateTimeZone('UTC'));
-        $hostPattern = '/' . preg_quote($host, '/') . '$/';
+        $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 
-        foreach ($this->cookies as $i => $cookie) {
-            if (! $cookie->isExpired($time)) {
+        foreach ($this->cookies as $id => $cookie) {
+            if (!$cookie->isExpired($now)) {
                 continue;
             }
-            $pathMatches = str_starts_with($path, $cookie->getPath());
-            $hostMatches = preg_match($hostPattern, $cookie->getDomain());
-            if ($pathMatches && $hostMatches) {
-                unset($this->cookies[$i]);
+
+            // Vérifie que le cookie appartient au domaine/path actuel
+            if ($this->isDomainMatching($cookie->getDomain(), $host) &&
+                $this->isPathMatching($cookie->getPath(), $path)) {
+                unset($this->cookies[$id]);
             }
         }
+    }
+
+    /**
+     * Fusionne cette collection avec une autre
+     */
+    public function merge(self $other): static
+    {
+        $new = clone $this;
+
+        foreach ($other->cookies as $id => $cookie) {
+            $new->cookies[$id] = $cookie;
+        }
+
+        return $new;
+    }
+
+    /**
+     * Crée une nouvelle collection avec seulement les cookies non expirés
+     */
+    public function withoutExpired(): static
+    {
+        $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $validCookies = [];
+
+        foreach ($this->cookies as $cookie) {
+            if (!$cookie->isExpired($now)) {
+                $validCookies[] = $cookie;
+            }
+        }
+
+        return new static($validCookies);
+    }
+
+    /**
+     * Vérifie si la collection contient des cookies expirés
+     */
+    public function hasExpired(): bool
+    {
+        $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+
+        foreach ($this->cookies as $cookie) {
+            if ($cookie->isExpired($now)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Retourne une représentation sous forme de chaîne de la collection
+     */
+    public function __toString(): string
+    {
+        $names = $this->getNames();
+
+        return sprintf('CookieCollection(%d cookies: %s)', count($this), implode(', ', $names));
     }
 }

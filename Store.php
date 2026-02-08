@@ -38,11 +38,11 @@ class Store extends Session
      */
     public function regenerate(bool $destroy = false): void
     {
-		if ($this->started) {
-			parent::regenerate($destroy);
-		}
+        if ($this->started) {
+            parent::regenerate($destroy);
+        }
 
-		$this->regenerateToken();
+        $this->regenerateToken();
     }
 
     /**
@@ -77,17 +77,17 @@ class Store extends Session
         return true;
     }
 
-	/**
-	 * Récupère les données flash ou une valeur par défaut.
-	 */
-	public function flashed(?string $key = null, mixed $default = null): mixed
-	{
-		if (null !== $data = $this->getFlashdata($key)) {
-			return $data;
-		}
+    /**
+     * Récupère les données flash ou une valeur par défaut.
+     */
+    public function flashed(?string $key = null, mixed $default = null): mixed
+    {
+        if (null !== $data = $this->getFlashdata($key)) {
+            return $data;
+        }
 
-		return Helpers::value($default);
-	}
+        return Helpers::value($default);
+    }
 
     /**
      * Vide toutes les données de session sauf certaines clés.
@@ -97,7 +97,7 @@ class Store extends Session
         $allData = $this->all();
 
         foreach ($allData as $key => $value) {
-            if (! in_array($key, $except)) {
+            if (! in_array($key, $except, true)) {
                 $this->remove($key);
             }
         }
@@ -120,7 +120,7 @@ class Store extends Session
     /**
      * Détermine si au moins une des clés existe et n'est pas nulle.
      */
-    public function hasAny(string|array $key): bool
+    public function hasAny(array|string $key): bool
     {
         $keys = is_array($key) ? $key : func_get_args();
 
@@ -190,8 +190,8 @@ class Store extends Session
      */
     public function replace(array $attributes): void
     {
-		$this->flush();
-		$this->regenerateToken();
+        $this->flush();
+        $this->regenerateToken();
 
         $this->put($attributes);
     }
@@ -267,7 +267,7 @@ class Store extends Session
         $this->flash('_old_input', $value);
     }
 
-	/**
+    /**
      * Flashe des erreurs dans la session.
      */
     public function flashErrors(array|string $errors, string $key = 'default'): array

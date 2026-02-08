@@ -19,7 +19,6 @@ use BlitzPHP\Utilities\DateTime\Date;
  */
 class File extends BaseHandler
 {
-
     /**
      * Dossier dans lequel nous devons stocker les fichiers de session
      *
@@ -173,8 +172,8 @@ class File extends BaseHandler
         }
 
         if (($length = strlen($data)) > 0) {
-			$result  = null;
-			$written = 0;
+            $result  = null;
+            $written = 0;
 
             for (; $written < $length; $written += $result) {
                 if (($result = fwrite($this->fileHandle, substr($data, $written))) === false) {
@@ -276,8 +275,9 @@ class File extends BaseHandler
 
     /**
      * Configurer l'expression régulière de l'ID de session.
-	 *
-	 * Pour vous faciliter la vie, nous imposons les paramètres par défaut de PHP. Parce que PHP9 les impose.
+     *
+     * Pour vous faciliter la vie, nous imposons les paramètres par défaut de PHP. Parce que PHP9 les impose.
+     *
      * @see https://wiki.php.net/rfc/deprecations_php_8_4#sessionsid_length_and_sessionsid_bits_per_character
      */
     protected function configureSessionIDRegex()

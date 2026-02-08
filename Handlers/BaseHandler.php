@@ -25,8 +25,8 @@ abstract class BaseHandler implements SessionHandlerInterface
 
     /**
      * Verrouiller l'espace réservé.
-	 *
-	 * @var bool|string
+     *
+     * @var bool|string
      */
     protected $lock = false;
 
@@ -40,7 +40,7 @@ abstract class BaseHandler implements SessionHandlerInterface
      */
     protected string $ipAddress;
 
-	/**
+    /**
      * Prefixe de la cle de session (memcached, redis, database).
      */
     protected string $keyPrefix = 'blitz_session:';
@@ -65,10 +65,10 @@ abstract class BaseHandler implements SessionHandlerInterface
      */
     protected string $cookieName = '';
 
-	/**
-	 * Nombre de secondes jusqu'à la fin de la session.
-	 */
-	protected int $sessionExpiration = 7200;
+    /**
+     * Nombre de secondes jusqu'à la fin de la session.
+     */
+    protected int $sessionExpiration = 7200;
 
     /**
      * Faire correspondre les adresses IP pour les cookies ?
@@ -94,18 +94,18 @@ abstract class BaseHandler implements SessionHandlerInterface
      */
     public function init(array $config, string $ipAddress): bool
     {
-		$config = (object) $config;
+        $config = (object) $config;
 
-		$this->ipAddress = $ipAddress;
+        $this->ipAddress = $ipAddress;
 
-		$this->cookieDomain = $config->cookie_domain;
-		$this->cookiePath   = $config->cookie_path;
-		$this->cookieSecure = $config->cookie_secure;
+        $this->cookieDomain = $config->cookie_domain;
+        $this->cookiePath   = $config->cookie_path;
+        $this->cookieSecure = $config->cookie_secure;
 
-		$this->cookieName        = $config->cookie_name;
-		$this->matchIP           = $config->match_ip;
-		$this->savePath          = $config->save_path;
-		$this->sessionExpiration = $config->expiration;
+        $this->cookieName        = $config->cookie_name;
+        $this->matchIP           = $config->match_ip;
+        $this->savePath          = $config->save_path;
+        $this->sessionExpiration = $config->expiration;
 
         return true;
     }

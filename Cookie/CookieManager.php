@@ -83,7 +83,7 @@ class CookieManager implements CookieManagerInterface
      */
     public function get(string $name, array $options = []): ?Cookie
     {
-		if (! array_key_exists($name, $_COOKIE) || empty($value = $_COOKIE[$name])) {
+        if (! array_key_exists($name, $_COOKIE) || empty($value = $_COOKIE[$name])) {
             return null;
         }
 
@@ -108,14 +108,14 @@ class CookieManager implements CookieManagerInterface
         return $this;
     }
 
-	public function setDefaults(array $defaults): self
-	{
-		foreach ($defaults as $k => $v) {
-			if (property_exists($this, $k)) {
-				$this->{$k} = $v;
-			}
-		}
+    public function setDefaults(array $defaults): self
+    {
+        foreach ($defaults as $k => $v) {
+            if (property_exists($this, $k)) {
+                $this->{$k} = $v;
+            }
+        }
 
-		return $this;
-	}
+        return $this;
+    }
 }

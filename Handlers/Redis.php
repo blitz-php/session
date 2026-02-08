@@ -57,9 +57,9 @@ class Redis extends BaseHandler
     public function init(array $config, string $ipAddress): bool
     {
         parent::init($config, $ipAddress);
-		$config = (object) $config;
+        $config = (object) $config;
 
-		$this->sessionExpiration = ($config->expiration === 0)
+        $this->sessionExpiration = ($config->expiration === 0)
             ? (int) ini_get('session.gc_maxlifetime')
             : $config->expiration;
 
@@ -72,7 +72,7 @@ class Redis extends BaseHandler
             $this->keyPrefix .= $this->ipAddress . ':';
         }
 
-		$this->lockRetryInterval = $config->lock_wait ?? $this->lockRetryInterval;
+        $this->lockRetryInterval = $config->lock_wait ?? $this->lockRetryInterval;
         $this->lockMaxRetries    = $config->lock_attempts ?? $this->lockMaxRetries;
 
         return true;

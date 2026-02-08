@@ -38,9 +38,9 @@ class CookieValuePrefix
      */
     public static function validate(string $cookieName, string $cookieValue, array|string $keys): ?string
     {
-		$keys = is_string($keys) ? [$keys] : $keys;
+        $keys = is_string($keys) ? [$keys] : $keys;
 
-		foreach ($keys as $key) {
+        foreach ($keys as $key) {
             $hasValidPrefix = str_starts_with($cookieValue, static::create($cookieName, $key));
 
             if ($hasValidPrefix) {

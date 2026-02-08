@@ -104,14 +104,14 @@ class Cookie implements CookieInterface
     /**
      * Constructeur
      *
-     * @param string $name Nom du cookie
-     * @param array|string|float|int|bool $value Valeur du cookie
-     * @param DateTimeInterface|null $expiresAt Date d'expiration
-     * @param string|null $path Chemin
-     * @param string|null $domain Domaine
-     * @param bool|null $secure Sécurisé
-     * @param bool|null $httpOnly HTTP seulement
-     * @param string|null $sameSite Politique SameSite
+     * @param string                      $name      Nom du cookie
+     * @param array|bool|float|int|string $value     Valeur du cookie
+     * @param DateTimeInterface|null      $expiresAt Date d'expiration
+     * @param string|null                 $path      Chemin
+     * @param string|null                 $domain    Domaine
+     * @param bool|null                   $secure    Sécurisé
+     * @param bool|null                   $httpOnly  HTTP seulement
+     * @param string|null                 $sameSite  Politique SameSite
      */
     public function __construct(
         string $name,
@@ -155,13 +155,13 @@ class Cookie implements CookieInterface
             return static::$defaults['expires'];
         }
 
-        /** @var \DateTime $expiresAt Clonage pour éviter les effets de bord */
+        /** @var DateTime $expiresAt Clonage pour éviter les effets de bord */
         $expiresAt = clone $expiresAt;
 
         return $expiresAt->setTimezone(new DateTimeZone('GMT'));
     }
 
-	/**
+    /**
      * Définit les options par défaut pour les cookies
      *
      * Les options valides sont :
@@ -189,14 +189,14 @@ class Cookie implements CookieInterface
     /**
      * Méthode de fabrication pour créer des instances de Cookie
      *
-     * @param string $name Nom du cookie
-     * @param array|string|float|int|bool $value Valeur du cookie
-     * @param array<string, mixed> $options Options du cookie
+     * @param string                      $name    Nom du cookie
+     * @param array|bool|float|int|string $value   Valeur du cookie
+     * @param array<string, mixed>        $options Options du cookie
      */
     public static function create(string $name, $value, array $options = []): static
     {
-		$options            += static::$defaults;
-		$options['expires']  = static::createDateTimeInstance($options['expires']);
+        $options += static::$defaults;
+        $options['expires'] = static::createDateTimeInstance($options['expires']);
 
         return new static(
             $name,
@@ -212,8 +212,8 @@ class Cookie implements CookieInterface
 
     /**
      * Crée une instance DateTimeInterface à partir de différentes représentations
-	 */
-    protected static function createDateTimeInstance(DateTimeInterface|string|int|null $expires): ?DateTimeInterface
+     */
+    protected static function createDateTimeInstance(DateTimeInterface|int|string|null $expires): ?DateTimeInterface
     {
         if ($expires === null) {
             return null;
@@ -226,7 +226,7 @@ class Cookie implements CookieInterface
         // Conversion des chaînes de date
         if (! is_numeric($expires)) {
             $timestamp = strtotime($expires);
-            $expires = $timestamp !== false ? $timestamp : null;
+            $expires   = $timestamp !== false ? $timestamp : null;
         }
 
         if ($expires !== null) {
@@ -239,22 +239,22 @@ class Cookie implements CookieInterface
     /**
      * Crée un cookie à partir d'une chaîne d'en-tête "Set-Cookie"
      *
-	 * @param array<string, mixed> $defaults Attributs par defaut.
+     * @param array<string, mixed> $defaults Attributs par defaut.
      */
     public static function createFromHeaderString(string $cookie, array $defaults = []): static
     {
-        $parts = static::parseHeaderString($cookie);
-        $nameValue = explode('=', (string)array_shift($parts), 2);
+        $parts     = static::parseHeaderString($cookie);
+        $nameValue = explode('=', (string) array_shift($parts), 2);
 
-        $name = urldecode($nameValue[0] ?? '');
+        $name  = urldecode($nameValue[0] ?? '');
         $value = urldecode($nameValue[1] ?? '');
 
-        $data = ['name'  => $name, 'value' => $value] + $defaults;
+        $data = ['name' => $name, 'value' => $value] + $defaults;
 
         // Traitement des attributs
         foreach ($parts as $part) {
             $attribute = static::parseCookieAttribute($part);
-            $data = static::processCookieAttribute($data, $attribute);
+            $data      = static::processCookieAttribute($data, $attribute);
         }
 
         return static::create($data['name'], $data['value'], $data);
@@ -289,7 +289,7 @@ class Cookie implements CookieInterface
 
         return [
             'key'   => strtolower(trim($key)),
-            'value' => trim($value)
+            'value' => trim($value),
         ];
     }
 
@@ -300,7 +300,7 @@ class Cookie implements CookieInterface
     {
         switch ($attribute['key']) {
             case 'max-age':
-                $data['expires'] = time() + (int)$attribute['value'];
+                $data['expires'] = time() + (int) $attribute['value'];
                 break;
 
             case 'samesite':
@@ -327,7 +327,7 @@ class Cookie implements CookieInterface
     public function toHeaderValue(): string
     {
         $headerValue = [
-            sprintf('%s=%s', $this->name, rawurlencode($this->getScalarValue()))
+            sprintf('%s=%s', $this->name, rawurlencode($this->getScalarValue())),
         ];
 
         // Ajout des attributs conditionnels
@@ -412,7 +412,7 @@ class Cookie implements CookieInterface
             return $this->flattenValue($this->value);
         }
 
-		assert(is_string($this->value), '$value est une chaine');
+        assert(is_string($this->value), '$value est une chaine');
 
         return $this->value;
     }
@@ -431,12 +431,12 @@ class Cookie implements CookieInterface
     /**
      * Définit la valeur du cookie.
      *
-     * @param array|string|float|int|bool $value The value to store.
+     * @param array|bool|float|int|string $value The value to store.
      */
     protected function setValue($value): void
     {
         $this->isExpanded = is_array($value);
-        $this->value      = is_array($value) ? $value : (string)$value;
+        $this->value      = is_array($value) ? $value : (string) $value;
     }
 
     /**
@@ -584,7 +584,7 @@ class Cookie implements CookieInterface
             $time = clone $time;
         }
 
-        if (!$this->expiresAt) {
+        if (! $this->expiresAt) {
             return false;
         }
 
@@ -763,7 +763,7 @@ class Cookie implements CookieInterface
      */
     protected function getExpandedValue(): array
     {
-        if (!$this->isExpanded && is_string($this->value)) {
+        if (! $this->isExpanded && is_string($this->value)) {
             $this->value = $this->expandValue($this->value);
         }
 
@@ -795,6 +795,7 @@ class Cookie implements CookieInterface
     protected function isJson(string $string): bool
     {
         $firstChar = substr($string, 0, 1);
+
         return $firstChar === '{' || $firstChar === '[';
     }
 

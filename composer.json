@@ -14,8 +14,8 @@
         }
     ],
     "require": {
-        "php": ">=8.0",
-		"blitz-php/utilities": "^1",
+        "php": "^8.2",
+		"blitz-php/utilities": "^1.9",
 		"psr/log": "^3.0"
     },
     "autoload": {

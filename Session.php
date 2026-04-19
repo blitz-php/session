@@ -29,6 +29,15 @@ use InvalidArgumentException;
 use Psr\Log\LoggerAwareTrait;
 use RuntimeException;
 
+/**
+ * Implementation du conteneur de session BlitzPHP.
+ *
+ * La configuration de session est faite via les variables session et cookie relatives.
+ *
+ * @property string $session_id
+ *
+ * @credit <a href="https://codeigniter.com/">CodeIgniter - CodeIgniter\Session\Session</a>
+ */
 class Session implements SessionInterface
 {
     use LoggerAwareTrait;
@@ -70,7 +79,7 @@ class Session implements SessionInterface
     ];
 
     /**
-     * Adapter a utiliser pour la session
+     * Instance du pilote à utiliser.
      */
     private BaseHandler $adapter;
 
@@ -316,7 +325,7 @@ class Session implements SessionInterface
         $cookieName = $this->config['cookie_name'];
 
         if (isset($_COOKIE[$cookieName])
-            && (! is_string($_COOKIE[$cookieName]) || preg_match('#\A' . $this->sidRegexp . '\z#', $_COOKIE[$cookieName])) !== 1) {
+            && (! is_string($_COOKIE[$cookieName]) || preg_match('#\A' . $this->sidRegexp . '\z#', $_COOKIE[$cookieName]) !== 1)) {
             unset($_COOKIE[$cookieName]);
             $this->logMessage('Session: Cookie de session invalide détecté et supprimé.', 'warning');
         }
@@ -335,10 +344,11 @@ class Session implements SessionInterface
         $regenerateTime = $this->config['time_to_update'] ?? 300;
 
         if ($regenerateTime > 0) {
-            $now            = Date::now()->getTimestamp();
-            $lastRegenerate = $_SESSION['__blitz_last_regenerate'] ?? 0;
+            $now = Date::now()->getTimestamp();
 
-            if (($now - $lastRegenerate) >= $regenerateTime) {
+			if (! isset($_SESSION['__blitz_last_regenerate'])) {
+                $_SESSION['__blitz_last_regenerate'] = $now;
+            } elseif ($_SESSION['__blitz_last_regenerate'] < ($now - $regenerateTime)) {
                 $this->regenerate((bool) $this->config['regenerate_destroy']);
             }
         }
@@ -369,7 +379,27 @@ class Session implements SessionInterface
             session_regenerate_id($destroy);
         }
 
-        // $this->removeOldSessionCookie();
+        $this->removeOldSessionCookie();
+    }
+
+    private function removeOldSessionCookie(): void
+    {
+		if (! function_exists('service')) {
+			return;
+		}
+
+		$cookieCollection = service('response')->getCookieCollection();
+
+        if (! $cookieCollection->has($this->config['cookie_name'])) {
+            return;
+        }
+
+        // CookieCollection est immutable.
+        $newCookieCollection = $cookieCollection->remove($this->config['cookie_name']);
+
+		foreach ($newCookieCollection as $cookie) {
+            setcookie($cookie->getName(), $cookie->getScalarValue(), $cookie->getOptions());
+        }
     }
 
     /**
@@ -789,6 +819,8 @@ class Session implements SessionInterface
     {
         $expiration   = $this->config['expiration'] === 0 ? 0 : Date::now()->getTimestamp() + $this->config['expiration'];
         $this->cookie = $this->cookie->withValue(session_id())->withExpiry(Date::createFromTimestamp($expiration));
+
+		setcookie($this->cookie->getName(), $this->cookie->getScalarValue(), $this->cookie->getOptions());
     }
 
     /**

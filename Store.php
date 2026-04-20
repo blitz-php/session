@@ -11,6 +11,7 @@
 
 namespace BlitzPHP\Session;
 
+use BlitzPHP\Traits\Macroable;
 use BlitzPHP\Utilities\Helpers;
 use BlitzPHP\Utilities\Iterable\Arr;
 use BlitzPHP\Utilities\String\Text;
@@ -19,6 +20,8 @@ use InvalidArgumentException;
 
 class Store extends Session
 {
+	use Macroable;
+	
     /**
      * {@inheritDoc}
      */
